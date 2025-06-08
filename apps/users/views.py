@@ -1,5 +1,3 @@
-from django.urls import reverse
-from urllib.parse import urljoin
 import requests
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,8 +9,13 @@ from rest_framework.permissions import AllowAny
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
-from .serializers import CustomRegisterSerializer, UserSerializer
-from .models import User
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
+import google.oauth2.credentials
+import google.oauth2.id_token
+import google.auth.transport.requests
+from .serializers import CustomRegisterSerializer, UserSerializer, User
+import requests
 import environ
 import logging
 
@@ -47,86 +50,95 @@ class CustomOAuth2Client(OAuth2Client):
         super().__init__(*args, **kwargs)
 
 
-class GoogleLoginView(SocialLoginView):
-    """Google OAuth2 login view"""
-
+class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
+    callback_url = env.str(
+        "GOOGLE_CALLBACK_URL",
+        default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
+    )
     client_class = CustomOAuth2Client
-    callback_url = "http://localhost:8000/accounts/google/login/callback/"
 
 
-class GoogleLoginCallback(APIView):
+class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
+    adapter_class = GoogleOAuth2Adapter
 
     def get(self, request, *args, **kwargs):
+        try:
+            code = request.query_params.get("code")
+            if not code:
+                return Response(
+                    {"error": "Code parameter is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        code = request.GET.get("code")
-        logger.info("Google login callback received with code: %s", code)
+            # Get Google OAuth2 tokens
+            token_endpoint = "https://oauth2.googleapis.com/token"
+            client_id = env("GOOGLE_CLIENT_ID")
+            client_secret = env("GOOGLE_CLIENT_SECRET")
+            redirect_uri = env(
+                "GOOGLE_CALLBACK_URL",
+                default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
+            )
 
-        if code is None:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            token_response = requests.post(
+                token_endpoint,
+                data={
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                },
+            )
 
-        # Remember to replace the localhost:8000 with the actual domain name before deployment
-        token_endpoint_url = urljoin(
-            "http://localhost:8000", reverse("auth:google_login")
-        )
-        response = requests.post(url=token_endpoint_url, data={"code": code})
+            if token_response.status_code != 200:
+                logger.error(f"Google token error: {token_response.text}")
+                return Response(
+                    {"error": "Failed to get Google token"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        return Response(response, status=status.HTTP_200_OK)
+            # Get user info from Google
+            credentials = google.oauth2.credentials.Credentials(
+                token_response.json()["access_token"]
+            )
+            request_session = google.auth.transport.requests.Request()
+            id_token = token_response.json()["id_token"]
+            id_info = google.oauth2.id_token.verify_oauth2_token(
+                id_token, request_session, client_id
+            )
 
+            # Get or create user
+            User = get_user_model()
+            try:
+                user = User.objects.get(email=id_info["email"])
+            except User.DoesNotExist:
+                user = User.objects.create(
+                    email=id_info["email"],
+                    first_name=id_info.get("given_name", ""),
+                    last_name=id_info.get("family_name", ""),
+                )
 
-# class GoogleLoginView(SocialLoginView):
-#     """Google OAuth2 login view"""
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
 
-#     adapter_class = GoogleOAuth2Adapter
-#     client_class = CustomOAuth2Client
-#     callback_url = "http://localhost:8000/accounts/google/login/callback/"
+            return Response(
+                {
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                    "user": {
+                        "id": user.id, # type: ignore
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
 
-#     def post(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-
-#         self.login(request)
-
-#         from dj_rest_auth.utils import jwt_encode
-#         from dj_rest_auth.app_settings import api_settings
-
-#         if api_settings.USE_JWT:
-#             access_token, refresh_token = jwt_encode(self.user)
-#             return Response(
-#                 {
-#                     "access_token": str(access_token),
-#                     "refresh_token": str(refresh_token),
-#                     "user": {
-#                         "id": self.user.id,
-#                         "email": self.user.email,
-#                         "username": self.user.username,
-#                     },
-#                 }
-#             )
-
-
-# class GoogleLoginCallback(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request, *args, **kwargs):
-#         logger.info("Google login callback received")
-
-#         code = request.GET.get("code")
-
-#         if code is None:
-#             return Response(status=status.HTTP_400_BAD_REQUEST)
-
-#         # Remember to replace the localhost:8000 with the actual domain name before deployment
-#         token_endpoint_url = urljoin(
-#             "http://localhost:8000", reverse("auth:google_login")
-#         )
-#         response = requests.post(url=token_endpoint_url, data={"code": code})
-
-#         if response.status_code == 200:
-#             return Response(response.json(), status=status.HTTP_200_OK)
-#         else:
-#             return Response(
-#                 {"error": "Failed to retrieve access token"},
-#                 status=response.status_code,
-#             )
+        except Exception as e:
+            logger.error(f"Google callback error: {str(e)}")
+            return Response(
+                {"error": "Authentication failed"}, status=status.HTTP_400_BAD_REQUEST
+            )

@@ -73,7 +73,6 @@ LOCAL_APPS = [
     "apps.users.apps.UsersConfig",
     "apps.common.apps.CommonConfig",
     "apps.customers.apps.CustomersConfig",
-    "apps.accounts.apps.AccountsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -119,7 +118,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DB_NAME"),
-        "HOST": env("DB_HOST", default="localhost"),
+        "HOST": env("DB_HOST", default="localhost"),  # type: ignore
         "USER": env("DB_USER"),
         "PASSWORD": env("DB_PASSWORD"),
         "PORT": env("DB_PORT"),

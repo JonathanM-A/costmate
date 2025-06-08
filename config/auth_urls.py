@@ -8,7 +8,7 @@ from dj_rest_auth.views import (
 )
 from dj_rest_auth.registration.views import VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
-from apps.users.views import CustomRegisterView, GoogleLoginView, GoogleLoginCallback
+from apps.users.views import CustomRegisterView
 
 
 urlpatterns = [
@@ -37,5 +37,4 @@ urlpatterns = [
         VerifyEmailView.as_view(),
         name="account_confirm_email",
     ),
-    path("google/", GoogleLoginView.as_view(), name="google_login"),
 ]

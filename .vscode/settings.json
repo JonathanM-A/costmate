@@ -27,5 +27,6 @@
             "username": "postgres",
             "database": "costmate"
         }
-    ]
+    ],
+    "postman.settings.dotenv-detection-notification-visibility": false
 }
