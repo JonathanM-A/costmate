@@ -1,0 +1,21 @@
+services:
+  costmate:
+    image: costmate
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: >
+      sh -c "python manage.py makemigrations &&
+            python manage.py migrate &&
+            python manage.py collectstatic --noinput &&
+            watchfiles --filter python 'gunicorn config.wsgi:application --bind 0.0.0.0:8000' ./"
+    volumes:
+      - .:/app  # Sync local code for development
+      - ./staticfiles:/app/staticfiles
+    ports:
+      - 8000:8000
+    env_file:
+      - .env  # Load all variables (DB_NAME, DB_USER, etc.) from here
+    environment:
+      - DB_HOST=host.docker.internal  # Changed from host.docker.internal to db
+    restart: unless-stopped
