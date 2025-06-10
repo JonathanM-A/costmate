@@ -85,7 +85,26 @@ class InventoryView(ModelViewSet):
         context["request"] = self.request
         return context
 
-    @action(methods=["put"], detail=True, url_path="decrease-stock")
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        quantity = instance.quantity
+
+        inventory_history_data = {
+            "inventory_item": instance.inventory_item,
+            "quantity": quantity,
+            "is_addition": False,
+            "purchase_date": None,
+            "created_by": request.user,
+        }
+
+        serializer = InventoryHistorySerializer(data=inventory_history_data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        instance.deactivate()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=["put"], detail=True, url_path="decrease")
     def decrease_stock(self, request, pk=None):
         inventory = self.get_object()
         quantity = request.data.get("quantity", 0)
@@ -114,12 +133,12 @@ class InventoryView(ModelViewSet):
             inventory.refresh_from_db()
 
             # Log the inventory history
-            inventory_history_data={
-                "inventory_item":inventory.inventory_item,
-                "quantity":quantity,
-                "is_addition":False,
-                "purchase_date":None,
-                "created_by":request.user,
+            inventory_history_data = {
+                "inventory_item": inventory.inventory_item,
+                "quantity": quantity,
+                "is_addition": False,
+                "purchase_date": None,
+                "created_by": request.user,
             }
             serializer = InventoryHistorySerializer(data=inventory_history_data)
             serializer.is_valid(raise_exception=True)

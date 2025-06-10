@@ -9,7 +9,7 @@ from .views import (
 
 router = routers.DefaultRouter()
 router.register("supplier", SupplierViewset, basename="supplier")
-router.register(r"inventory", InventoryView, basename="inventory")
+router.register(r"inventory-stock", InventoryView, basename="inventory-stock")
 
 urlpatterns = [
     path("inventory-items", InventoryItemView.as_view(), name="inventory_items"),
