@@ -80,8 +80,8 @@ class CustomerAdmin(admin.ModelAdmin):
     def get_created_by_business(self, obj):
         return obj.created_by.business_name if obj.created_by else ""
 
-    get_created_by_business.short_description = "Created By"
-    get_created_by_business.admin_order_field = "created_by__business_name"
+    get_created_by_business.short_description = "Created By"  # type: ignore
+    get_created_by_business.admin_order_field = "created_by__business_name"  # type: ignore
 
     def save_model(self, request, obj, form, change):
         if not change:  # If creating new object
@@ -91,7 +91,7 @@ class CustomerAdmin(admin.ModelAdmin):
     def formfield_for_choice_field(self, db_field, request, **kwargs):
         if db_field.name == "created_by":
             kwargs["choices"] = [
-                (user.id, user.business_name)
+                (user.id, user.business_name)  # type: ignore
                 for user in User.objects.filter(is_active=True)
             ]
         return super().formfield_for_choice_field(db_field, request, **kwargs)

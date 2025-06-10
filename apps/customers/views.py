@@ -15,7 +15,7 @@ class CustomerViewset(ModelViewSet):
     filterset_fields = ["customer_type", "is_discount_eligible"]
     search_fields = ["name", "contact", "email"]
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore
         user = self.request.user
         if user.is_authenticated:
             if user.is_superuser:
@@ -23,12 +23,12 @@ class CustomerViewset(ModelViewSet):
                 return Customer.objects.all()
             return Customer.objects.all()
         return Customer.objects.none()
-    
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
-    
+
     def destroy(self, request, *args, **kwargs):
         """Soft delete the customer by setting is_active to False."""
         instance = self.get_object()
@@ -38,4 +38,3 @@ class CustomerViewset(ModelViewSet):
             {"message": "Customer deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
-    
