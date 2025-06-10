@@ -30,11 +30,6 @@ class InventoryItemView(ListCreateAPIView):
                 Q(created_by=user) | Q(is_default=True), is_active=True
             )
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["request"] = self.request
-        return context
-
 
 class SupplierViewset(ModelViewSet):
     queryset = Supplier.objects.none()
@@ -49,11 +44,6 @@ class SupplierViewset(ModelViewSet):
                 return Supplier.objects.all()
             return Supplier.objects.filter(created_by=user, is_active=True)
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["request"] = self.request
-        return context
-
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.deactivate()
@@ -65,39 +55,49 @@ class InventoryView(ModelViewSet):
     serializer_class = InventorySerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "delete", "post", "put"]
-    search_fields = ["item__name"]
+    search_fields = ["inventory_item__name"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
         if user.is_authenticated:
             if user.is_superuser:
                 return Inventory.objects.all()
-            return Inventory.objects.filter(created_by=user, is_active=True).annotate(
-                below_reorder=Case(
-                    When(quantity__lt=F("reorder_level"), then=Value(True)),
-                    default=Value(False),
-                    output_field=BooleanField(),
+            return (
+                Inventory.objects.filter(created_by=user, is_active=True)
+                .annotate(
+                    below_reorder=Case(
+                        When(quantity__lt=F("reorder_level"), then=Value(True)),
+                        default=Value(False),
+                        output_field=BooleanField(),
+                    )
                 )
+                .select_related("inventory_item", "created_by")
             )
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["request"] = self.request
-        return context
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instances = serializer.save()
+        return Response(
+            InventorySerializer(instances, many=True).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         quantity = instance.quantity
 
         inventory_history_data = {
-            "inventory_item": instance.inventory_item,
+            "inventory_item_id": instance.inventory_item.id,
             "quantity": quantity,
             "is_addition": False,
             "purchase_date": None,
             "created_by": request.user,
         }
 
-        serializer = InventoryHistorySerializer(data=inventory_history_data)
+        serializer = InventoryHistorySerializer(
+            data=inventory_history_data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         instance.deactivate()
@@ -134,7 +134,7 @@ class InventoryView(ModelViewSet):
 
             # Log the inventory history
             inventory_history_data = {
-                "inventory_item": inventory.inventory_item,
+                "inventory_item_id": inventory.inventory_item.id,
                 "quantity": quantity,
                 "is_addition": False,
                 "purchase_date": None,
@@ -161,3 +161,13 @@ class InventoryHistoryView(ListAPIView):
         "is_addition",
     ]
     search_fields = ["inventory_item__name", "supplier__name"]
+
+    def get_queryset(self):  # type: ignore
+        user = self.request.user
+        if user.is_authenticated:
+            if user.is_superuser:
+                return InventoryHistory.objects.all()
+            else:
+                return InventoryHistory.objects.filter(created_by=user).select_related(
+                    "inventory_item", "created_by"
+                )
