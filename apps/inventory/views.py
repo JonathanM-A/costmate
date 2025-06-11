@@ -6,6 +6,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import ListCreateAPIView, ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory
 from .serializers import (
     InventoryItemSerializer,
@@ -28,7 +29,7 @@ class InventoryItemView(ListCreateAPIView):
                 return InventoryItem.objects.all()
             return InventoryItem.objects.filter(
                 Q(created_by=user) | Q(is_default=True), is_active=True
-            )
+            ).select_related("created_by")
 
 
 class SupplierViewset(ModelViewSet):
@@ -42,7 +43,7 @@ class SupplierViewset(ModelViewSet):
         if user.is_authenticated:
             if user.is_superuser:
                 return Supplier.objects.all()
-            return Supplier.objects.filter(created_by=user, is_active=True)
+            return Supplier.objects.filter(created_by=user, is_active=True).select_related("created_by")
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -54,7 +55,7 @@ class InventoryView(ModelViewSet):
     queryset = Inventory.objects.none()
     serializer_class = InventorySerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "delete", "post", "put"]
+    http_method_names = ["get", "delete", "post", "patch"]
     search_fields = ["inventory_item__name"]
 
     def get_queryset(self):  # type: ignore
@@ -82,6 +83,14 @@ class InventoryView(ModelViewSet):
             InventorySerializer(instances, many=True).data,
             status=status.HTTP_201_CREATED,
         )
+
+    def partial_update(self, request, *args, **kwargs):
+        allowed_fields = {"reorder_level"}
+        incoming_fields = set(request.data.keys())
+
+        if not incoming_fields.issubset(allowed_fields):
+            raise ValidationError(f"You can only update the following field(s): {allowed_fields}")
+        return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
