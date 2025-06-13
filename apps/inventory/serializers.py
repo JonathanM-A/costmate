@@ -71,7 +71,7 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
         if user and "inventory_item_id" in fields:
             fields["inventory_item_id"].queryset = fields[
                 "inventory_item_id"
-            ].queryset.filter(created_by=user.id)
+            ].queryset.filter(Q(created_by=user.id) | Q(is_default=True))
 
         if user and "supplier_id" in fields:
             fields["supplier_id"].queryset = fields["supplier_id"].queryset.filter(

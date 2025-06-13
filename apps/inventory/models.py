@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator
 from ..common.models import BaseModel
 from ..users.models import User
 from django.utils import timezone
+import uuid
 
 
 class InventoryItem(BaseModel):
@@ -15,6 +16,9 @@ class InventoryItem(BaseModel):
         related_name="created_inventory_items",
         blank=False,
     )
+
+    class Meta:  # type: ignore
+        unique_together = ["name", "created_by"]
 
     def __str__(self):
         return f"{self.name} ({self.unit})" if self.unit else self.name
@@ -32,12 +36,16 @@ class Supplier(BaseModel):
 
 
 class Inventory(BaseModel):
-    id = None
-    inventory_item = models.OneToOneField(
+    id = models.UUIDField(
+        default=uuid.uuid4,  # Generate UUID and convert to string
+        editable=False,
+        primary_key=True,
+        max_length=36,
+    )
+    inventory_item = models.ForeignKey(
         InventoryItem,
         on_delete=models.CASCADE,
         related_name="inventory",
-        primary_key=True,
     )
     quantity = models.DecimalField(
         max_digits=10,
@@ -55,12 +63,16 @@ class Inventory(BaseModel):
         User, on_delete=models.CASCADE, related_name="created_inventories", blank=False
     )
 
+    class Meta:  # type: ignore
+        verbose_name_plural = "Inventory"
+        unique_together = ["inventory_item", "created_by"]
+
     @property
     def is_below_reorder_level(self):
         return self.quantity < self.reorder_level
 
     def __str__(self):
-        return f"{self.inventory_item.name} - {self.quantity} {self.inventory_item.unit if self.inventory_item.unit else ''}"
+        return self.pk
 
 
 class InventoryHistory(BaseModel):
@@ -94,8 +106,11 @@ class InventoryHistory(BaseModel):
         blank=False,
     )
 
+    class Meta:  # type: ignore
+        verbose_name_plural = "Inventory History"
+
     def __str__(self):
-        return f"{self.inventory_item.name} - {"Added" if self.is_addition else "Subtracted"} - {self.quantity} {self.inventory_item.unit if self.inventory_item.unit else ''} on {self.purchase_date}"
+        return self.pk
 
     @property
     def cost_per_unit(self):

@@ -5,8 +5,7 @@ services:
       context: .
       dockerfile: ./Dockerfile
     command: >
-      sh -c "python manage.py makemigrations &&
-            python manage.py migrate &&
+      sh -c "python scrip
             python manage.py collectstatic --noinput &&
             watchfiles --filter python 'gunicorn config.wsgi:application --bind 0.0.0.0:8000' ./"
     volumes:

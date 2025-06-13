@@ -8,7 +8,7 @@ from .views import (
 )
 
 router = routers.DefaultRouter()
-router.register("supplier", SupplierViewset, basename="supplier")
+router.register(r"supplier", SupplierViewset, basename="supplier")
 router.register(r"inventory-stock", InventoryView, basename="inventory-stock")
 
 urlpatterns = [

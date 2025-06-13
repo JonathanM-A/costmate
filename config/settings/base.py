@@ -73,7 +73,8 @@ LOCAL_APPS = [
     "apps.users.apps.UsersConfig",
     "apps.common.apps.CommonConfig",
     "apps.customers.apps.CustomersConfig",
-    "apps.inventory.apps.InventoryConfig"
+    "apps.inventory.apps.InventoryConfig",
+    "apps.recipes.apps.RecipesConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -120,6 +121,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DB_NAME"),
         "HOST": env("DB_HOST", default="localhost"),  # type: ignore
+        # "HOST": "localhost",  # type: ignore
         "USER": env("DB_USER"),
         "PASSWORD": env("DB_PASSWORD"),
         "PORT": env("DB_PORT"),
@@ -353,3 +355,7 @@ if DEBUG:
     import mimetypes
 
     mimetypes.add_type("application/javascript", ".js", True)
+
+# Admin credentials for initial setup
+ADMIN_EMAIL = env('ADMIN_EMAIL')
+ADMIN_PASSWORD = env('ADMIN_PASSWORD')
