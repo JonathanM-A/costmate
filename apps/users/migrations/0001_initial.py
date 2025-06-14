@@ -23,11 +23,9 @@ def create_superuser(apps, schema_editor):
     # )
 
     # Create superuser
-    User.objects.create_superuser(
+    User.create_superuser(
         email=settings.ADMIN_EMAIL,
         password=settings.ADMIN_PASSWORD,
-        first_name="Admin",
-        last_name="User",
     )
 
 
