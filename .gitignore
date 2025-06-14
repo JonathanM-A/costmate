@@ -169,3 +169,4 @@ cython_debug/
 smtp_test.py
 logs
 costmate creds.txt
+.vscode
