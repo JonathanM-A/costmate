@@ -1,6 +1,9 @@
 from .base import *  # noqa
+import environ
 import dj_database_url
 from decouple import config
+
+env = environ.Env()
 
 
 DATABASES = {
