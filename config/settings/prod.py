@@ -219,42 +219,42 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "simple",
         },
-        "file": {
-            "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/costmate.log",
-            "formatter": "concise_error",
-        },
-        "mail_admins": {
-            "level": "ERROR",
-            "class": "django.utils.log.AdminEmailHandler",
-            "formatter": "verbose",
-        },
+        # "file": {
+        #     "level": "INFO",
+        #     "class": "logging.FileHandler",
+        #     "filename": BASE_DIR / "logs/costmate.log",
+        #     "formatter": "concise_error",
+        # },
+        # "mail_admins": {
+        #     "level": "ERROR",
+        #     "class": "django.utils.log.AdminEmailHandler",
+        #     "formatter": "verbose",
+        # },
     },
     "loggers": {
         "django": {
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
             "exc_info": False,
         },
         "django.server": {
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
         },
         "django.request": {
-            "handlers": ["mail_admins", "file"],
+            "handlers": ["mail_admins"],
             "level": "ERROR",
             "propagate": False,
         },
-        # "django.db.backends": {
-        #     "handlers": ["console"],
-        #     "level": "DEBUG" if DEBUG else "INFO",
-        #     "propagate": False,
-        # },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
+            "propagate": False,
+        },
         "apps": {  # Your application's logger
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "level": LOG_LEVEL,
             "propagate": True,
         },
