@@ -1,7 +1,8 @@
 services:
   - type: web
     name: costmate
-    env: python
+    runtime: python
+    plan: free
     buildCommand: ./build.sh
     startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
