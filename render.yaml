@@ -16,7 +16,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.13.0
 
-  - type: postgres
+  - type: pgsql
     name: costmate_db
     ipAllowList: []
     plan: free
