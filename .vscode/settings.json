@@ -26,6 +26,18 @@
             "name": "costmate",
             "username": "postgres",
             "database": "costmate"
+        },
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "driver": "PostgreSQL",
+            "connectString": "postgresql://costmate_db_8yd8_user:cJqBwkvWNvIVktdE6ZMgzSuBshARMVe8@dpg-d16s457diees73dhpsbg-a.oregon-postgres.render.com/costmate_db_8yd8",
+            "name": "costmate_db"
         }
     ],
     "postman.settings.dotenv-detection-notification-visibility": false
