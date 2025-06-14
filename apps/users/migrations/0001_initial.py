@@ -5,25 +5,15 @@ import uuid
 from django.db import migrations, models
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
+from django.apps import apps as django_apps
 
 
 def create_superuser(apps, schema_editor):
     User = apps.get_model("users", "User")
-    # BusinessType = apps.get_model("users", "BusinessType")
-    # Goal = apps.get_model("users", "Goal")
-
-    # # Create default business type
-    # default_business_type, _ = BusinessType.objects.get_or_create(
-    #     code="admin", defaults={"name": "Admin Business", "is_default": True}
-    # )
-
-    # # Create default goal
-    # default_goal, _ = Goal.objects.get_or_create(
-    #     code="admin", defaults={"name": "Admin Goal", "is_default": True}
-    # )
+    UserModel = django_apps.get_model("users", "User")
 
     # Create superuser
-    User.create_superuser(
+    UserModel.objects.create_superuser( # type: ignore
         email=settings.ADMIN_EMAIL,
         password=settings.ADMIN_PASSWORD,
     )
