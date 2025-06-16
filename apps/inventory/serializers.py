@@ -52,7 +52,7 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
     )
     supplier = SupplierSerializer(read_only=True)
     supplier_id = serializers.PrimaryKeyRelatedField(
-        queryset=Supplier.objects.all(), source="supplier", write_only=True
+        queryset=Supplier.objects.all(), source="supplier", write_only=True, required=False
     )
 
     class Meta:
@@ -62,6 +62,7 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
             "id",
             "created_at",
             "updated_at",
+            "created_by"
         ]
 
     def get_fields(self):
@@ -78,12 +79,10 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
                 created_by=user.id
             )
         return fields
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        is_addition = representation.pop("is_addition")
-        representation["action"] = "add" if is_addition else "deduct"
-        return representation
+    
+    def create(self, validated_data):
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
 
 
 class InventorySerializer(serializers.ModelSerializer):
@@ -178,7 +177,6 @@ class InventorySerializer(serializers.ModelSerializer):
                     "supplier_id": supplier_id,
                     "cost_price": cost_price,
                     "purchase_date": purchase_date,
-                    "created_by": user.id,
                 }
                 serializer = InventoryHistorySerializer(
                     data=inventory_history_data, context=self.context
