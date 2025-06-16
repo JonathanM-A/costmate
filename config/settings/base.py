@@ -251,11 +251,11 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
-        # "django.db.backends": {
-        #     "handlers": ["console"],
-        #     "level": "DEBUG" if DEBUG else "INFO",
-        #     "propagate": False,
-        # },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
+            "propagate": False,
+        },
         "apps": {  # Your application's logger
             "handlers": ["console", "file"],
             "level": LOG_LEVEL,
