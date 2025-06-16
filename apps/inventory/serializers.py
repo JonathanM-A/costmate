@@ -127,8 +127,9 @@ class InventorySerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Quantity must be a positive number.")
 
             try:
-                InventoryItem.objects.get(
-                    id=inventory_item_id, created_by=self.context["request"].user.id
+                InventoryItem.objects.filter(
+                    Q(created_by=self.context["request"].user.id) | Q(is_default=True),
+                    id=inventory_item_id,
                 )
             except InventoryItem.DoesNotExist:
                 raise serializers.ValidationError(
