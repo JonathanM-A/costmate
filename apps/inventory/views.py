@@ -43,7 +43,9 @@ class SupplierViewset(ModelViewSet):
         if user.is_authenticated:
             if user.is_superuser:
                 return Supplier.objects.all()
-            return Supplier.objects.filter(created_by=user, is_active=True).select_related("created_by")
+            return Supplier.objects.filter(
+                created_by=user, is_active=True
+            ).select_related("created_by")
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -55,7 +57,7 @@ class InventoryView(ModelViewSet):
     queryset = Inventory.objects.none()
     serializer_class = InventorySerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "delete", "post", "patch"]
+    http_method_names = ["get", "delete", "post", "patch", "put"]
     search_fields = ["inventory_item__name"]
 
     def get_queryset(self):  # type: ignore
@@ -89,34 +91,37 @@ class InventoryView(ModelViewSet):
         incoming_fields = set(request.data.keys())
 
         if not incoming_fields.issubset(allowed_fields):
-            raise ValidationError(f"You can only update the following field(s): {allowed_fields}")
+            raise ValidationError(
+                f"You can only update the following field(s): {allowed_fields}"
+            )
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         quantity = instance.quantity
 
-        inventory_history_data = {
-            "inventory_item_id": instance.inventory_item.id,
-            "quantity": quantity,
-            "is_addition": False,
-            "purchase_date": None,
-            "created_by": request.user,
-        }
+        with transaction.atomic():
+            inventory_history_data = {
+                "inventory_item_id": instance.inventory_item.id,
+                "quantity": quantity,
+                "is_addition": False,
+                "purchase_date": None,
+            }
 
-        serializer = InventoryHistorySerializer(
-            data=inventory_history_data, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        instance.deactivate()
+            serializer = InventoryHistorySerializer(
+                data=inventory_history_data, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            instance.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(methods=["put"], detail=True, url_path="decrease")
-    def decrease_stock(self, request, pk=None):
+    def decrease_stock(self, request, *args, pk=None, **kwargs):
         inventory = self.get_object()
-        quantity = request.data.get("quantity", 0)
+        quantity = int(request.data.get("quantity", 0))
         if quantity <= 0:
             return Response(
                 {"error": "Quantity must be greater than zero."},
@@ -147,9 +152,10 @@ class InventoryView(ModelViewSet):
                 "quantity": quantity,
                 "is_addition": False,
                 "purchase_date": None,
-                "created_by": request.user,
             }
-            serializer = InventoryHistorySerializer(data=inventory_history_data)
+            serializer = InventoryHistorySerializer(
+                data=inventory_history_data, context={"request": request}
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
