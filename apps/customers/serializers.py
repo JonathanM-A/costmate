@@ -70,7 +70,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             validated_data["created_by"] = self.context["request"].user
-            super().create(validated_data)
+            return super().create(validated_data)
         except Exception as e:
             logger.error(f"Error creating customer: {str(e)}")
             raise

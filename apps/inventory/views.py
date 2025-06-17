@@ -52,7 +52,8 @@ class SupplierViewset(ModelViewSet):
         instance.deactivate()
         return Response(
             {"message": "Supplier deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT)
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
 
 class InventoryView(ModelViewSet):
@@ -96,7 +97,16 @@ class InventoryView(ModelViewSet):
             raise ValidationError(
                 f"You can only update the following field(s): {allowed_fields}"
             )
-        return super().partial_update(request, *args, **kwargs)
+        instance = self.get_object()
+        new_reorder_level = self.request.data.get("reorder_level")
+        if new_reorder_level:
+            instance.reorder_level = new_reorder_level
+            instance.save()
+
+            return Response(
+                {"message": "Reorder level updated."}, status=status.HTTP_200_OK
+            )
+        raise ValidationError({"error": "Reorder level not provided"})
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -120,8 +130,8 @@ class InventoryView(ModelViewSet):
 
         return Response(
             {"message": "Inventory entry deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT
-            )
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
     @action(methods=["put"], detail=True, url_path="decrease")
     def decrease_stock(self, request, *args, pk=None, **kwargs):
