@@ -8,6 +8,7 @@ class CustomerType(BaseModel):
     name = models.CharField(max_length=100, blank=False)
     description = models.TextField(blank=True, null=True)
     is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
 
     class Meta:  # type: ignore
         verbose_name = "Customer Type"
@@ -28,11 +29,11 @@ class Customer(BaseModel):
     location_country = models.CharField(max_length=50, blank=False)
     location_city = models.CharField(max_length=50, blank=False)
     location_url = models.URLField(null=True, blank=True)
-    customer_type = models.ForeignKey(CustomerType, on_delete=models.CASCADE)
+    customer_type = models.ForeignKey(CustomerType, on_delete=models.SET_NULL, null=True)
     custom_customer_type = models.CharField(max_length=50, null=True, blank=True)
     is_discount_eligible = models.BooleanField(default=False)
     created_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="customers", null=True, blank=True
+        User, on_delete=models.CASCADE, related_name="customers"
     )
 
     class Meta:  # type: ignore
