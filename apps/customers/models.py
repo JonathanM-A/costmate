@@ -4,7 +4,7 @@ from ..users.models import User
 
 
 class CustomerType(BaseModel):
-    code = models.CharField(max_length=50, unique=True, blank=False)
+    code = models.CharField(max_length=50, unique=True, blank=True, null=True)
     name = models.CharField(max_length=100, blank=False)
     description = models.TextField(blank=True, null=True)
     is_default = models.BooleanField(default=False)
@@ -25,7 +25,7 @@ class Customer(BaseModel):
 
     name = models.CharField(max_length=100, blank=False)
     contact = models.CharField(unique=True, max_length=15, blank=False)
-    email = models.EmailField(unique=True, null=True, blank=True)
+    email = models.EmailField(unique=True, null=True, blank=False)
     location_country = models.CharField(max_length=50, blank=False)
     location_city = models.CharField(max_length=50, blank=False)
     location_url = models.URLField(null=True, blank=True)
