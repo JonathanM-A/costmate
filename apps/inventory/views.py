@@ -50,7 +50,9 @@ class SupplierViewset(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.deactivate()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Supplier deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT)
 
 
 class InventoryView(ModelViewSet):
@@ -116,7 +118,10 @@ class InventoryView(ModelViewSet):
 
             instance.delete()
 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Inventory entry deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT
+            )
 
     @action(methods=["put"], detail=True, url_path="decrease")
     def decrease_stock(self, request, *args, pk=None, **kwargs):
