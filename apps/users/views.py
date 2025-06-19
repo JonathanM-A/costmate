@@ -128,7 +128,7 @@ class GoogleCallbackView(APIView):
                     "refresh": str(refresh),
                     "access": str(refresh.access_token),
                     "user": {
-                        "id": user.id, # type: ignore
+                        "pk": user.id, # type: ignore
                         "email": user.email,
                         "first_name": user.first_name,
                         "last_name": user.last_name,

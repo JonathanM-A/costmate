@@ -48,27 +48,6 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "is_active", "is_staff", "is_superuser")
 
     def validate(self, data):  # type: ignore
-        # Check if update operation and restrict read_only_fields
-        if self.instance:
-            read_only_fields = [
-                "email",
-                "first_name",
-                "last_name",
-                "primary_goal",
-                "custom_primary_goal",
-                "currency",
-                "staff_count",
-                "biggest_challenge",
-                "personal_contact",
-                "business_contact",
-            ]
-
-            for field in read_only_fields:
-                if field in data:
-                    logger.warning(f"Attempt to update read-only field: '{field}' for user {self.instance.id}")
-                    raise serializers.ValidationError(
-                        {field: f"{field} cannot be updated after registration."}
-                    )
 
         # Validate business type and primary goal combinations
         logger.debug(f"Validating user data: {data}")
@@ -162,25 +141,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class CustomRegisterSerializer(RegisterSerializer):
-    username = None  # Disable username field
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
-    business_name = serializers.CharField(required=True)
-    business_type = serializers.PrimaryKeyRelatedField(
-        queryset=BusinessType.objects.all()
-    )
-    custom_business_type = serializers.CharField(required=False, allow_blank=True)
-    primary_goal = serializers.PrimaryKeyRelatedField(queryset=Goal.objects.all())
-    custom_primary_goal = serializers.CharField(required=False, allow_blank=True)
-    location_country = serializers.CharField(required=True)
-    location_city = serializers.CharField(required=True)
-    opening_time = serializers.TimeField(required=True)
-    closing_time = serializers.TimeField(required=True)
-    preferred_currency = serializers.CharField(required=True)
-    staff_count = serializers.IntegerField(required=True)
-    personal_contact = serializers.CharField(required=False, allow_blank=True)
-    business_contact = serializers.CharField(required=False, allow_blank=True)
-    biggest_challenge = serializers.CharField(required=False, allow_blank=True)
+    personal_contact = serializers.CharField(required=True)
 
     def get_cleaned_data(self):
         data = super().get_cleaned_data()
@@ -188,20 +151,7 @@ class CustomRegisterSerializer(RegisterSerializer):
             {
                 "first_name": self.validated_data.get("first_name", ""),  # type: ignore
                 "last_name": self.validated_data.get("last_name", ""),  # type: ignore
-                "business_name": self.validated_data.get("business_name", ""),  # type: ignore
-                "business_type": self.validated_data.get("business_type"),  # type: ignore
-                "custom_business_type": self.validated_data.get(  # type: ignore
-                    "custom_business_type", ""
-                ),
-                "primary_goal": self.validated_data.get("primary_goal"),  # type: ignore
-                "location_country": self.validated_data.get("location_country", ""),  # type: ignore
-                "location_city": self.validated_data.get("location_city", ""),  # type: ignore
-                "opening_time": self.validated_data.get("opening_time"),  # type: ignore
-                "closing_time": self.validated_data.get("closing_time"),  # type: ignore
-                "preferred_currency": self.validated_data.get("preferred_currency", ""),  # type: ignore
-                "staff_count": self.validated_data.get("staff_count", 1),  # type: ignore
-                "personal_contact": self.validated_data.get("personal_contact", ""),  # type: ignore
-                "business_contact": self.validated_data.get("business_contact", ""),  # type: ignore
+                "personal_contact": self.validated_data.get("personal_constact"),  # type: ignore
             }
         )
         return data
