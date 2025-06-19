@@ -15,12 +15,8 @@ class RecipeIventorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RecipeInventory
-        # fields = "__all__"
         exclude = ["recipe"]
-        read_only_fields = [
-            "recipe", "inventory_item", "cost"
-        ]
-
+        read_only_fields = ["recipe", "inventory_item", "cost"]
 
     def get_fields(self):
         fields = super().get_fields()
@@ -39,8 +35,9 @@ class IngredientSerializer(serializers.Serializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    # inventory_items = InventoryItemSerializer(many=True, read_only=True)
-    recipe_ingredients = RecipeIventorySerializer(many=True, read_only=True, source="recipeinventory_set")
+    recipe_ingredients = RecipeIventorySerializer(
+        many=True, read_only=True, source="recipeinventory_set"
+    )
     ingredients = serializers.ListField(
         child=IngredientSerializer(), min_length=1, write_only=True
     )
@@ -48,12 +45,11 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        # fields = "__all__"
         exclude = ["inventory_items"]
         read_only_fields = [
             "id",
             "inventory_items",
-            "total_cost"
+            "total_cost",
             "created_by",
             "created_at",
             "updated_at",
@@ -66,12 +62,14 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             recipe_instance = super().create(validated_data)
-            
+
             for ingredient in ingredients:
                 ingredient["recipe_id"] = recipe_instance.id
-                serializer = RecipeIventorySerializer(data=ingredient, context=self.context)
+                serializer = RecipeIventorySerializer(
+                    data=ingredient, context=self.context
+                )
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
-            
+
             recipe_instance.refresh_from_db()
             return recipe_instance
