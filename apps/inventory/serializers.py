@@ -62,7 +62,8 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
             "id",
             "created_at",
             "updated_at",
-            "created_by"
+            "created_by",
+            "cost_per_unit"
         ]
 
     def get_fields(self):
@@ -150,7 +151,7 @@ class InventorySerializer(serializers.ModelSerializer):
                 quantity = entry.get("quantity")
                 cost_price = entry.get("cost_price")
                 supplier_id = entry.get("supplier_id")
-                purchase_date = entry.get("purchase_date")
+                incident_date = entry.get("incident_date")
 
                 inventory_item = InventoryItem.objects.get(id=inventory_item_id)
 
@@ -176,7 +177,7 @@ class InventorySerializer(serializers.ModelSerializer):
                     "quantity": quantity,
                     "supplier_id": supplier_id,
                     "cost_price": cost_price,
-                    "purchase_date": purchase_date,
+                    "incident_date": incident_date,
                 }
                 serializer = InventoryHistorySerializer(
                     data=inventory_history_data, context=self.context

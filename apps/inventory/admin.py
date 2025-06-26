@@ -80,23 +80,23 @@ class InventoryHistoryAdmin(admin.ModelAdmin):
         "supplier",
         "cost_price",
         "cost_per_unit",
-        "purchase_date",
+        "incident_date",
         "created_by",
     )
-    list_filter = ("is_addition", "supplier", "purchase_date", "created_by")
+    list_filter = ("is_addition", "supplier", "incident_date", "created_by")
     search_fields = ("inventory_item__name", "supplier__name")
     readonly_fields = ("created_at", "updated_at", "cost_per_unit")
-    date_hierarchy = "purchase_date"
+    date_hierarchy = "incident_date"
     fieldsets = (
         (
             "Transaction Information",
             {"fields": ("inventory_item", "quantity", "is_addition")},
         ),
-        ("Purchase Details", {"fields": ("supplier", "cost_price", "purchase_date")}),
+        ("Purchase Details", {"fields": ("supplier", "cost_price", "cost_per_unit", "incident_date")}),
         (
             "System Information",
             {
-                "fields": ("created_by", "created_at", "updated_at", "cost_per_unit"),
+                "fields": ("created_by", "created_at", "updated_at",),
                 "classes": ("collapse",),
             },
         ),
