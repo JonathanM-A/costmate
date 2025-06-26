@@ -14,7 +14,7 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'get_labour_time', 'created_by', 'created_at')
     list_filter = ('created_by',)
     search_fields = ('name',)
-    readonly_fields = ('created_at', 'updated_at', 'invenory_items_cost', 'labour_cost')
+    readonly_fields = ('created_at', 'updated_at', 'inventory_items_cost', 'labour_cost')
     inlines = [RecipeInventoryInline]
     fieldsets = (
         ('Basic Information', {
