@@ -19,6 +19,12 @@ class RecipeCategory(BaseModel):
         User, on_delete=models.CASCADE, blank=False, related_name="recipe_categories"
     )
 
+    class Meta: # type: ignore
+        verbose_name_plural = "Recipe Categories"
+
+    def __str__(self):
+        return self.name
+
 
 class Recipe(BaseModel):
     name = models.CharField(max_length=100, unique=True, blank=False)

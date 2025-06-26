@@ -8,17 +8,16 @@ class RecipeInventoryInline(admin.TabularInline):
     fields = ('inventory_item', 'quantity')
 
 
-
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'get_labour_time', 'created_by', 'created_at')
+    list_display = ('name', 'category', 'get_labour_time', 'created_by', 'created_at')
     list_filter = ('created_by',)
     search_fields = ('name',)
     readonly_fields = ('created_at', 'updated_at', 'inventory_items_cost', 'labour_cost')
     inlines = [RecipeInventoryInline]
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'labour_time')
+            'fields': ('name', 'labour_time', 'category',)
         }),
         ('Cost Information', {
             'fields': (
@@ -47,3 +46,18 @@ class RecipeInventoryAdmin(admin.ModelAdmin):
     list_filter = ('recipe', 'inventory_item')
     search_fields = ('recipe__name', 'inventory_item__name')
     raw_id_fields = ('recipe', 'inventory_item')
+
+
+@admin.register(RecipeCategory)
+class RecipeCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'created_by', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Category Information', {
+            'fields': ('name', 'description')
+        }),
+        ('System Information', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+        }),
+    )
