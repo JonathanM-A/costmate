@@ -1,3 +1,5 @@
+from django.utils import timezone
+from datetime import datetime
 from django.db.models import Q, F, BooleanField, Case, When, Value
 from django.db import transaction
 from rest_framework.response import Response
@@ -117,7 +119,7 @@ class InventoryView(ModelViewSet):
                 "inventory_item_id": instance.inventory_item.id,
                 "quantity": quantity,
                 "is_addition": False,
-                "purchase_date": None,
+                "incident_date": None,
             }
 
             serializer = InventoryHistorySerializer(
@@ -137,10 +139,18 @@ class InventoryView(ModelViewSet):
     def decrease_stock(self, request, *args, pk=None, **kwargs):
         inventory = self.get_object()
         quantity = int(request.data.get("quantity", 0))
+        incident_date = request.data.get("incident_date", datetime.today())
+
         if quantity <= 0:
             return Response(
                 {"error": "Quantity must be greater than zero."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if incident_date > datetime.today():
+            return Response(
+                {"error": "Incident date cannot be in the future."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         if inventory.quantity < quantity:
@@ -166,7 +176,7 @@ class InventoryView(ModelViewSet):
                 "inventory_item_id": inventory.inventory_item.id,
                 "quantity": quantity,
                 "is_addition": False,
-                "purchase_date": None,
+                "incident_date": incident_date,
             }
             serializer = InventoryHistorySerializer(
                 data=inventory_history_data, context={"request": request}
@@ -185,7 +195,7 @@ class InventoryHistoryView(ListAPIView):
     permission_classes = [IsAuthenticated]
     filter_fields = [
         "created_at",
-        "purchase_date",
+        "incident_date",
         "inventory_item",
         "supplier",
         "is_addition",
