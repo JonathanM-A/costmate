@@ -4,7 +4,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
-from .serializers import RecipeSerializer, Recipe, RecipeInventory
+from .serializers import (
+    RecipeSerializer,
+    Recipe,
+    RecipeInventory,
+    RecipeCategorySerializer,
+    RecipeCategory,
+)
 
 
 class RecipeViewset(ModelViewSet):
@@ -13,15 +19,18 @@ class RecipeViewset(ModelViewSet):
     serializer_class = RecipeSerializer
     http_method_names = ["get", "post", "put", "delete"]
     search_fields = ["name"]
+    filter_fields = ["category"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
         if user.is_authenticated:
             if user.is_superuser:
                 return Recipe.objects.all()
-            return Recipe.objects.filter(created_by=user).prefetch_related(
-                "inventory_items"
-            ).select_related("created_by")
+            return (
+                Recipe.objects.filter(created_by=user)
+                .prefetch_related("inventory_items")
+                .select_related("created_by")
+            )
 
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -60,3 +69,20 @@ class RecipeViewset(ModelViewSet):
                         )
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RecipeCategoryViewset(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = RecipeCategory.objects.none()
+    serializer_class = RecipeCategorySerializer
+    http_method_names = ["get", "post", "patch", "delete"]
+    search_fields = ["name"]
+
+    def get_queryset(self):  # type: ignore
+        user = self.request.user
+        if user.is_authenticated:
+            if user.is_superuser:
+                return RecipeCategory.objects.all()
+            return RecipeCategory.objects.filter(created_by=user).select_related(
+                "created_by"
+            )

@@ -39,10 +39,10 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         exclude = ("groups", "user_permissions", "is_staff", "is_superuser")
         extra_kwargs = {
-            "business_type": {"write_only": True},
-            "custom_business_type": {"write_only": True},
-            "primary_goal": {"write_only": True},
-            "custom_primary_goal": {"write_only": True},
+            "business_type": {"write_only": True, "required": False},
+            "custom_business_type": {"write_only": True, "required": False},
+            "primary_goal": {"write_only": True, "required": False},
+            "custom_primary_goal": {"write_only": True, "required": False},
             "password": {"write_only": True},
         }
         read_only_fields = ("id", "is_active", "is_staff", "is_superuser")
@@ -117,26 +117,6 @@ class UserSerializer(serializers.ModelSerializer):
             return representation
         except Exception as e:
             logger.error(f"Error creating user representation: {str(e)}")
-            raise
-
-    def create(self, validated_data):
-        logger.info(f"Creating new user with email: {validated_data.get('email')}")
-        try:
-            user = super().create(validated_data)
-            logger.info(f"User created successfully: {user.id}")
-            return user
-        except Exception as e:
-            logger.error(f"Error creating user: {str(e)}")
-            raise
-
-    def update(self, instance, validated_data):
-        logger.info(f"Updating user: {instance.id}")
-        try:
-            user = super().update(instance, validated_data)
-            logger.info(f"User updated successfully: {user.id}")
-            return user
-        except Exception as e:
-            logger.error(f"Error updating user: {str(e)}")
             raise
 
 

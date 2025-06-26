@@ -1,8 +1,22 @@
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
-from .models import Recipe, RecipeInventory
+from .models import Recipe, RecipeInventory, RecipeCategory
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
+import logging
+
+logger = logging.Logger(__name__)
+
+
+class RecipeCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecipeCategory
+        fields = ["id", "name", "description"]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at", "is_active"]
+
+    def create(self, validated_data):
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
 
 
 class RecipeIventorySerializer(serializers.ModelSerializer):
@@ -11,7 +25,6 @@ class RecipeIventorySerializer(serializers.ModelSerializer):
         queryset=InventoryItem.objects.all(), write_only=True, source="inventory_item"
     )
     inventory_item = InventoryItemSerializer(read_only=True)
-    cost = serializers.ReadOnlyField()
 
     class Meta:
         model = RecipeInventory
@@ -36,12 +49,11 @@ class IngredientSerializer(serializers.Serializer):
 
 class RecipeSerializer(serializers.ModelSerializer):
     recipe_ingredients = RecipeIventorySerializer(
-        many=True, read_only=True, source="recipeinventory_set"
+        many=True, read_only=True, source="ingredients"
     )
     ingredients = serializers.ListField(
         child=IngredientSerializer(), min_length=1, write_only=True
     )
-    total_cost = serializers.ReadOnlyField()
 
     class Meta:
         model = Recipe
@@ -49,7 +61,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "inventory_items",
+            "inventory_items_cost",
+            "labour_cost",
             "total_cost",
+            "cost_price",
+            "selling_price",
             "created_by",
             "created_at",
             "updated_at",
@@ -72,4 +88,31 @@ class RecipeSerializer(serializers.ModelSerializer):
                 serializer.save()
 
             recipe_instance.refresh_from_db()
+            recipe_instance.calculate_costs()
+
             return recipe_instance
+    
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop("ingredients", None)
+        validated_data["created_by"] = self.context["request"].user
+
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+
+            if ingredients is not None:
+                # Clear existing ingredients
+                instance.ingredients.all().delete()
+
+                for ingredient in ingredients:
+                    ingredient["recipe_id"] = instance.id
+                    serializer = RecipeIventorySerializer(
+                        data=ingredient, context=self.context
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+
+            instance.calculate_labour_cost()
+            instance.calculate_costs()
+            instance.refresh_from_db()
+
+            return instance

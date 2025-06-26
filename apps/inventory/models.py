@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
 from ..common.models import BaseModel
@@ -72,7 +73,7 @@ class Inventory(BaseModel):
         return self.quantity < self.reorder_level
 
     def __str__(self):
-        return self.pk
+        return str(self.pk)
 
 
 class InventoryHistory(BaseModel):
@@ -98,22 +99,22 @@ class InventoryHistory(BaseModel):
     cost_price = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
     )
-    purchase_date = models.DateField(blank=True, null=True, default=timezone.now)
+    incident_date = models.DateField(blank=True, null=True, default=timezone.now)
     created_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="created_inventory_history",
         blank=False,
     )
+    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory History"
 
     def __str__(self):
-        return self.pk
+        return str(self.pk)
 
-    @property
-    def cost_per_unit(self):
+    def save(self, *args, **kwargs):
         if self.quantity > 0:
-            return self.cost_price / self.quantity
-        return 0.00
+            self.cost_per_unit = self.cost_price/self.quantity
+        super().save(*args, **kwargs)

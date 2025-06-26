@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Recipe, RecipeInventory
+from .models import Recipe, RecipeInventory, RecipeCategory
 
 
 class RecipeInventoryInline(admin.TabularInline):
@@ -8,16 +8,23 @@ class RecipeInventoryInline(admin.TabularInline):
     fields = ('inventory_item', 'quantity')
 
 
+
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'get_labour_time', 'created_by', 'created_at')
     list_filter = ('created_by',)
     search_fields = ('name',)
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'invenory_items_cost', 'labour_cost')
     inlines = [RecipeInventoryInline]
     fieldsets = (
         ('Basic Information', {
             'fields': ('name', 'labour_time')
+        }),
+        ('Cost Information', {
+            'fields': (
+                'inventory_items_cost', 'labour_rate', 'labour_cost',
+                'packaging_cost', 'overhead_cost'
+            ),
         }),
         ('System Information', {
             'fields': ('created_by', 'created_at', 'updated_at'),
