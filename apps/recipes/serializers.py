@@ -111,7 +111,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
 
-            instance.calculate_costs()
             instance.refresh_from_db()
+            instance.calculate_costs()
 
             return instance
