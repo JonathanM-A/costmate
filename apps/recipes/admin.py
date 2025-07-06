@@ -13,16 +13,16 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'get_labour_time', 'created_by', 'created_at')
     list_filter = ('created_by',)
     search_fields = ('name',)
-    readonly_fields = ('created_at', 'updated_at', 'inventory_items_cost', 'labour_cost')
+    readonly_fields = ('created_at', 'updated_at', 'inventory_items_cost', 'labour_cost', 'cost_price', 'selling_price')
     inlines = [RecipeInventoryInline]
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'labour_time', 'category',)
+            'fields': ('name', 'labour_time', 'category','is_draft','instructions')
         }),
         ('Cost Information', {
             'fields': (
                 'inventory_items_cost', 'labour_rate', 'labour_cost',
-                'packaging_cost', 'overhead_cost'
+                'packaging_cost', 'overhead_cost', 'profit_margin', 'cost_price', 'selling_price'
             ),
         }),
         ('System Information', {

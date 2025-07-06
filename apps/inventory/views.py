@@ -1,6 +1,6 @@
 from django.utils import timezone
 from datetime import datetime
-from django.db.models import Q, F, BooleanField, Case, When, Value
+from django.db.models import Q, F, BooleanField, Case, When, Value, Sum
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
@@ -90,6 +90,28 @@ class InventoryView(ModelViewSet):
             InventorySerializer(instances, many=True).data,
             status=status.HTTP_201_CREATED,
         )
+    
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+
+        # Add aggregated data to the response
+        total_count = self.get_queryset().count()
+        total_count_below_reorder = self.get_queryset().filter(
+            quantity__lt=F("reorder_level")
+        ).count()
+        total_count_above_reorder = total_count - total_count_below_reorder
+        total_value = self.get_queryset().aggregate(
+            total_value=Sum("total_value")
+        )["total_value"] or 0.00
+
+        # If response.data is a list, wrap it in a dict
+        response.data["total_count"] = total_count
+        response.data["total_count_below_reorder"] = total_count_below_reorder
+        response.data["total_count_above_reorder"] = total_count_above_reorder
+        response.data["total_value"] = total_value
+
+        return response
+        
 
     def partial_update(self, request, *args, **kwargs):
         allowed_fields = {"reorder_level"}
