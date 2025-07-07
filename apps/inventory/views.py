@@ -16,6 +16,7 @@ from .serializers import (
     InventorySerializer,
     InventoryHistorySerializer,
 )
+from ..recipes.serializers import RecipeSerializer
 
 
 class InventoryItemView(ListCreateAPIView):
@@ -90,19 +91,20 @@ class InventoryView(ModelViewSet):
             InventorySerializer(instances, many=True).data,
             status=status.HTTP_201_CREATED,
         )
-    
+
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
 
         # Add aggregated data to the response
         total_count = self.get_queryset().count()
-        total_count_below_reorder = self.get_queryset().filter(
-            quantity__lt=F("reorder_level")
-        ).count()
+        total_count_below_reorder = (
+            self.get_queryset().filter(quantity__lt=F("reorder_level")).count()
+        )
         total_count_above_reorder = total_count - total_count_below_reorder
-        total_value = self.get_queryset().aggregate(
-            total_value=Sum("total_value")
-        )["total_value"] or 0.00
+        total_value = (
+            self.get_queryset().aggregate(total_value=Sum("total_value"))["total_value"]
+            or 0.00
+        )
 
         # If response.data is a list, wrap it in a dict
         response.data["total_count"] = total_count
@@ -111,7 +113,6 @@ class InventoryView(ModelViewSet):
         response.data["total_value"] = total_value
 
         return response
-        
 
     def partial_update(self, request, *args, **kwargs):
         allowed_fields = {"reorder_level"}
@@ -168,11 +169,11 @@ class InventoryView(ModelViewSet):
                 {"error": "Quantity must be greater than zero."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         if incident_date > datetime.today():
             return Response(
                 {"error": "Incident date cannot be in the future."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if inventory.quantity < quantity:
@@ -209,6 +210,28 @@ class InventoryView(ModelViewSet):
         return Response(
             {"message": "Stock decreased successfully."}, status=status.HTTP_200_OK
         )
+
+    @action(methods=["get"], detail=True, url_path="history")
+    def view_inventory_item_history(self, request, *args, **kwargs):
+        inventory = self.get_object()
+        history = (
+            InventoryHistory.objects.filter(
+                inventory_item=inventory.inventory_item, created_by=request.user
+            )
+            .order_by("-created_at")
+            .select_related("supplier")
+        )
+        serializer = InventoryHistorySerializer(history, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=["get"], detail=True, url_path="recipes")
+    def view_inventory_item_recipes(self, request, *args, **kwargs):
+        inventory = self.get_object()
+        recipes = inventory.inventory_item.recipes.filter(
+            created_by=request.user
+        ).prefetch_related("ingredients__inventory_item")
+        serializer = RecipeSerializer(recipes, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class InventoryHistoryView(ListAPIView):
