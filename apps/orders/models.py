@@ -24,7 +24,13 @@ class Order(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
-    profit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    profit_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    profit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     delivery_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=20,
@@ -39,11 +45,18 @@ class Order(BaseModel):
         User, on_delete=models.CASCADE, related_name="orders", blank=False
     )
 
-    def calculate_total_value(self):
+    def calculate_costs(self):
         """
         Calculate the total value of the order based on the associated recipes.
         """
         self.total_value = sum(recipe.selling_price for recipe in self.recipes.all())
+        total_cost_price = sum(
+            recipe.cost_price for recipe in self.recipes.all()
+        )
+        self.profit = self.total_value - total_cost_price
+        self.profit_percentage = (
+            (self.profit / total_cost_price * 100) if total_cost_price > 0 else Decimal(0.00)
+        )
 
     def save(self, *args, **kwargs):
         """
@@ -56,7 +69,7 @@ class Order(BaseModel):
                 self.order_no = f"ORD-{last_order_no + 1:05d}"
             else:
                 self.order_no = "ORD-00001"
-        self.calculate_total_value()
+        self.calculate_costs()
         super().save(*args, **kwargs)
 
 
@@ -91,3 +104,14 @@ class OrderRecipe(models.Model):
         """
         self.calculate_price()
         super().save(*args, **kwargs)
+
+    def update_inventory(self, user):
+        """
+        Update the inventory based on the quantity change.
+        This method should be called when the order recipe is created or updated.
+        """
+        recipe_ingredients = self.recipe.ingredients.all()
+        for ingredient in recipe_ingredients:
+            inventory = ingredient.inventory_item.inventory.get(created_by=user)
+            inventory.quantity -= ingredient.quantity * self.quantity
+            inventory.save()

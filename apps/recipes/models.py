@@ -133,6 +133,9 @@ class Recipe(BaseModel):
         self.calculate_costs()
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return self.name
+
 
 class RecipeInventory(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
