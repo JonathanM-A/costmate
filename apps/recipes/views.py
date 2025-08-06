@@ -23,14 +23,20 @@ class RecipeViewset(ModelViewSet):
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return Recipe.objects.all()
-            return (
-                Recipe.objects.filter(created_by=user)
-                .prefetch_related("inventory_items")
-                .select_related("created_by")
-            )
+        if not user.is_authenticated:
+            return Recipe.objects.none()
+
+        base_queryset = (
+            Recipe.objects.all()
+            if user.is_superuser
+            else Recipe.objects.filter(created_by=user, is_active=True)
+        )
+
+        return (
+            base_queryset.prefetch_related("inventory_items")
+            .select_related("created_by")
+            .order_by("name")
+        )
 
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -80,9 +86,16 @@ class RecipeCategoryViewset(ModelViewSet):
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return RecipeCategory.objects.all()
-            return RecipeCategory.objects.filter(created_by=user).select_related(
-                "created_by"
-            )
+        if not user.is_authenticated:
+            return RecipeCategory.objects.none()
+
+        base_queryset = (
+            RecipeCategory.objects.all()
+            if user.is_superuser
+            else RecipeCategory.objects.filter(created_by=user, is_active=True)
+        )
+        return (
+            base_queryset.filter(created_by=user)
+            .select_related("created_by")
+            .order_by("name")
+        )

@@ -1,6 +1,16 @@
 from django.utils import timezone
 from datetime import datetime
-from django.db.models import Q, F, BooleanField, Case, When, Value, Sum
+from django.db.models import (
+    Q,
+    F,
+    BooleanField,
+    Case,
+    When,
+    Value,
+    Sum,
+    Count,
+    IntegerField,
+)
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,6 +19,7 @@ from rest_framework.generics import ListCreateAPIView, ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from djmoney.money import Money
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory
 from .serializers import (
     InventoryItemSerializer,
@@ -17,6 +28,7 @@ from .serializers import (
     InventoryHistorySerializer,
 )
 from ..recipes.serializers import RecipeSerializer
+from ..users.utils import get_user_preferrence_from_cache
 
 
 class InventoryItemView(ListCreateAPIView):
@@ -27,12 +39,17 @@ class InventoryItemView(ListCreateAPIView):
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return InventoryItem.objects.all()
-            return InventoryItem.objects.filter(
+        if not user.is_authenticated:
+            return InventoryItem.objects.none()
+
+        base_queryset = (
+            InventoryItem.objects.all()
+            if user.is_superuser
+            else InventoryItem.objects.filter(
                 Q(created_by=user) | Q(is_default=True), is_active=True
-            ).select_related("created_by")
+            )
+        )
+        return base_queryset.select_related("created_by").order_by("name")
 
 
 class SupplierViewset(ModelViewSet):
@@ -80,7 +97,7 @@ class InventoryView(ModelViewSet):
                         output_field=BooleanField(),
                     )
                 )
-                .select_related("inventory_item", "created_by")
+                .select_related("inventory_item")
             )
 
     def create(self, request, *args, **kwargs):
@@ -94,23 +111,34 @@ class InventoryView(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
+        queryset = self.get_queryset()
 
         # Add aggregated data to the response
-        total_count = self.get_queryset().count()
-        total_count_below_reorder = (
-            self.get_queryset().filter(quantity__lt=F("reorder_level")).count()
-        )
-        total_count_above_reorder = total_count - total_count_below_reorder
-        total_value = (
-            self.get_queryset().aggregate(total_value=Sum("total_value"))["total_value"]
-            or 0.00
+        result = queryset.aggregate(
+            total_count_below_reorder=Count(
+                Case(
+                    When(quantity__lte=F("reorder_level"), then=1),
+                    output_field=IntegerField(),
+                )
+            ),
+            total_count_above_reorder=Count(
+                Case(
+                    When(quantity__gt=F("reorder_level"), then=1),
+                    output_field=IntegerField(),
+                )
+            ),
+            total_value=Sum("total_value", output_field=IntegerField()),
         )
 
         # If response.data is a list, wrap it in a dict
-        response.data["total_count"] = total_count
-        response.data["total_count_below_reorder"] = total_count_below_reorder
-        response.data["total_count_above_reorder"] = total_count_above_reorder
-        response.data["total_value"] = total_value
+        response.data["total_count_below_reorder"] = result["total_count_below_reorder"]
+        response.data["total_count_above_reorder"] = result["total_count_above_reorder"]
+        response.data["total_value"] = str(
+            Money(
+                result["total_value"],
+                get_user_preferrence_from_cache(self.request.user, "currency", "USD"),
+            )
+        )
 
         return response
 
@@ -221,7 +249,9 @@ class InventoryView(ModelViewSet):
             .order_by("-created_at")
             .select_related("supplier")
         )
-        serializer = InventoryHistorySerializer(history, many=True, context={"request": request})
+        serializer = InventoryHistorySerializer(
+            history, many=True, context={"request": request}
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=["get"], detail=True, url_path="recipes")
@@ -251,8 +281,10 @@ class InventoryHistoryView(ListAPIView):
         user = self.request.user
         if user.is_authenticated:
             if user.is_superuser:
-                return InventoryHistory.objects.all()
+                return InventoryHistory.objects.all().select_related(
+                    "inventory_item", "supplier"
+                )
             else:
                 return InventoryHistory.objects.filter(created_by=user).select_related(
-                    "inventory_item", "created_by"
+                    "inventory_item", "supplier"
                 )
