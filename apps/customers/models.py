@@ -24,10 +24,10 @@ class Customer(BaseModel):
     """Customer model to store customer information."""
 
     name = models.CharField(max_length=100, blank=False)
-    contact = models.CharField(unique=True, max_length=15, blank=False)
-    email = models.EmailField(unique=True, null=True, blank=False)
-    location_country = models.CharField(max_length=50, blank=False)
-    location_city = models.CharField(max_length=50, blank=False)
+    contact = models.CharField(max_length=15, blank=False)
+    email = models.EmailField(null=True, blank=True)
+    location_country = models.CharField(max_length=50, blank=True, null=True)
+    location_city = models.CharField(max_length=50, blank=True, null=True)
     location_url = models.URLField(null=True, blank=True)
     customer_type = models.ForeignKey(CustomerType, on_delete=models.SET_NULL, null=True)
     custom_customer_type = models.CharField(max_length=50, null=True, blank=True)
@@ -38,6 +38,7 @@ class Customer(BaseModel):
 
     class Meta:  # type: ignore
         ordering = ["name"]
+        unique_together = ["created_by", "contact"]
 
     @property
     def display_customer_type(self):

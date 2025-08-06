@@ -1,8 +1,10 @@
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
+from djmoney.money import Money
 from .models import Recipe, RecipeInventory, RecipeCategory
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
+from ..users.utils import get_user_preferrence_from_cache
 import logging
 
 logger = logging.Logger(__name__)
@@ -41,10 +43,29 @@ class RecipeIventorySerializer(serializers.ModelSerializer):
             ].queryset.filter(Q(is_default=True) | Q(created_by=user.id))
         return fields
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user, "currency", "USD"
+        )
+        representation["cost"] = str(Money(instance.cost, currency))
+        representation["quantity"] = (
+            str(instance.quantity) + instance.inventory_item.unit
+        )
+        return representation
+
 
 class IngredientSerializer(serializers.Serializer):
     inventory_item_id = serializers.UUIDField()
     quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+
+    def validate_inventory_item_id(self, value):
+        user = self.context["request"].user
+        if not InventoryItem.objects.filter(
+            Q(is_default=True) | Q(created_by=user.id), id=value
+        ).exists():
+            raise serializers.ValidationError("Invalid inventory item ID.")
+        return value
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -54,12 +75,33 @@ class RecipeSerializer(serializers.ModelSerializer):
     ingredients = serializers.ListField(
         child=IngredientSerializer(), min_length=1, write_only=True
     )
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=RecipeCategory.objects.all(), write_only=True, source="category"
+    )
+    category = RecipeCategorySerializer(read_only=True)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        user = self.context["request"].user
+
+        if user and "category_id" in fields:
+            fields["category_id"].queryset = fields["category_id"].queryset.filter(
+                created_by=user.id
+            )
+        return fields
 
     class Meta:
         model = Recipe
-        exclude = ["inventory_items"]
+        exclude = [
+            "inventory_items",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "is_active",
+        ]
         read_only_fields = [
             "id",
+            "recipe_ingredients",
             "inventory_items",
             "inventory_items_cost",
             "labour_cost",
@@ -76,6 +118,20 @@ class RecipeSerializer(serializers.ModelSerializer):
         ingredients = validated_data.pop("ingredients")
         validated_data["created_by"] = self.context["request"].user
 
+        profit_margin = validated_data.get("profit_margin", None)
+        labour_rate = validated_data.get("labour_rate", None)
+
+        if not profit_margin:
+            default_profit_margin = get_user_preferrence_from_cache(
+                self.context["request"].user, "profit_margin", 30.00
+            )
+            validated_data["profit_margin"] = default_profit_margin
+        if not labour_rate:
+            default_labour_rate = get_user_preferrence_from_cache(
+                self.context["request"].user, "labour_rate", 20.00
+            )
+            validated_data["labour_rate"] = default_labour_rate
+
         with transaction.atomic():
             recipe_instance = super().create(validated_data)
 
@@ -87,11 +143,10 @@ class RecipeSerializer(serializers.ModelSerializer):
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
 
-            recipe_instance.refresh_from_db()
-            recipe_instance.calculate_costs()
+            recipe_instance.save()
 
             return recipe_instance
-    
+
     def update(self, instance, validated_data):
         ingredients = validated_data.pop("ingredients", None)
         validated_data["created_by"] = self.context["request"].user
@@ -111,7 +166,26 @@ class RecipeSerializer(serializers.ModelSerializer):
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
 
-            instance.refresh_from_db()
-            instance.calculate_costs()
+            instance.save()
 
             return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["profit_margin"] = str(instance.profit_margin) + "%"
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user, "currency", "USD"
+        )
+        money_fields = [
+            "inventory_items_cost",
+            "labour_cost",
+            "packaging_cost",
+            "overhead_cost",
+            "cost_price",
+            "selling_price",
+        ]
+        for field in money_fields:
+            if field in representation:
+                amount = representation[field]
+                representation[field] = str(Money(amount, currency))
+        return representation
