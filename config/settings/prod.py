@@ -78,6 +78,7 @@ LOCAL_APPS = [
     "apps.customers.apps.CustomersConfig",
     "apps.inventory.apps.InventoryConfig",
     "apps.recipes.apps.RecipesConfig",
+    "apps.orders.apps.OrdersConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -358,6 +359,16 @@ if DEBUG:
 # Admin credentials for initial setup
 ADMIN_EMAIL = env("ADMIN_EMAIL")
 ADMIN_PASSWORD = env("ADMIN_PASSWORD")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
 
 
 # SECURITY

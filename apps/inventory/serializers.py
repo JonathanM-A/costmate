@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.db.models import F, Q
 from rest_framework import serializers
+from djmoney.money import Money
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory
+from ..users.utils import get_user_preferrence_from_cache
 import logging
 
 logger = logging.Logger(__name__)
@@ -10,7 +12,7 @@ logger = logging.Logger(__name__)
 class InventoryItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryItem
-        fields = "__all__"
+        exclude = ["created_by", "updated_at", "created_at", "is_active", "is_default"]
         read_only_fields = [
             "created_at",
             "updated_at",
@@ -32,7 +34,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
-        fields = "__all__"
+        exclude = ["created_by", "updated_at", "created_at", "is_active"]
         read_only_fields = ["created_at", "updated_at", "is_active", "created_by"]
 
     def validate_name(self, value):
@@ -57,13 +59,12 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InventoryHistory
-        fields = "__all__"
+        exclude = ["created_by", "updated_at", "created_at", "is_active"]
         read_only_fields = [
             "id",
             "created_at",
             "updated_at",
             "created_by",
-            "cost_per_unit"
         ]
 
     def get_fields(self):
@@ -81,9 +82,35 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
             )
         return fields
     
+    def validate(self, attrs):
+        validated_data = super().validate(attrs)
+
+        is_addition = validated_data.get("is_addtion", True)
+        if not is_addition:
+            quantity = validated_data.get("quantity", 0)
+            if quantity <= 0:
+                raise serializers.ValidationError("Quantity must be greater than zero for removals.")
+            if validated_data.get("cost_price", 0) >= 0:
+                raise serializers.ValidationError("Removals should not have a cost price.")
+        return validated_data
+    
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
         return super().create(validated_data)
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD")
+        
+        representation["cost_price"] = str(Money(
+            instance.cost_price, currency
+        ))
+        representation["cost_per_unit"] = str(Money(
+            instance.cost_per_unit, currency
+        ))
+        representation["quantity"] = str(instance.quantity) + instance.inventory_item.unit
+        return representation
 
 
 class InventorySerializer(serializers.ModelSerializer):
@@ -98,18 +125,20 @@ class InventorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Inventory
-        fields = "__all__"
+        exclude = ["created_by", "updated_at", "created_at", "is_active"]
         read_only_fields = [
             "id",
             "inventory_item",
             "quantity",
+            "total_value",
+            "cost_per_unit",
             "reorder_level",
             "created_by",
             "created_at",
             "updated_at",
             "is_active",
         ]
-
+    
     def validate(self, attrs):
         validated_data = super().validate(attrs)
 
@@ -189,5 +218,14 @@ class InventorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD")
+        representation["total_value"] = str(Money(
+            instance.total_value, currency
+        ))
+        representation["cost_per_unit"] = str(Money(
+            instance.cost_per_unit, currency
+        ))
         representation["quantity"] += representation["inventory_item"]["unit"]
+        representation["reorder_level"] = str(instance.reorder_level) + instance.inventory_item.unit
         return representation

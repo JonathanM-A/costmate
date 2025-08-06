@@ -1,13 +1,11 @@
 from django.db import models
 from django.db.models import Max
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
+from decimal import Decimal
+import uuid
 from ..common.models import BaseModel
 from ..inventory.models import InventoryItem, InventoryHistory
-import uuid
-from decimal import Decimal
 
 User = get_user_model()
 
@@ -19,7 +17,7 @@ class RecipeCategory(BaseModel):
         User, on_delete=models.CASCADE, blank=False, related_name="recipe_categories"
     )
 
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         verbose_name_plural = "Recipe Categories"
 
     def __str__(self):
@@ -39,7 +37,10 @@ class Recipe(BaseModel):
         InventoryItem, through="RecipeInventory", related_name="recipes"
     )
     inventory_items_cost = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal(0.00)
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
     )
     labour_time = models.DurationField(
         null=True,
@@ -50,42 +51,49 @@ class Recipe(BaseModel):
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Rate per hour",
     )
     labour_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Total labour cost",
     )
     packaging_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Cost of packaging per unit",
     )
     overhead_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Overhead cost per unit",
     )
     profit_margin = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Margin percentage",
     )
     cost_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Calculated cost price",
     )
     selling_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
         help_text="Calculated selling price",
     )
     is_draft = models.BooleanField(
@@ -110,7 +118,7 @@ class Recipe(BaseModel):
                 Decimal(self.labour_time.total_seconds() / 3600) * self.labour_rate
             )
         inventory_items_cost = sum(
-            ri.cost for ri in self.ingredients.all() # type: ignore
+            ri.cost for ri in self.ingredients.all()  # type: ignore
         )
         self.inventory_items_cost = inventory_items_cost
         self.cost_price = (
@@ -120,7 +128,10 @@ class Recipe(BaseModel):
             + self.overhead_cost
         )
         self.selling_price = self.cost_price * (1 + (self.profit_margin / Decimal(100)))
-        self.save()
+
+    def save(self, *args, **kwargs):
+        self.calculate_costs()
+        super().save(*args, **kwargs)
 
 
 class RecipeInventory(models.Model):
@@ -132,7 +143,14 @@ class RecipeInventory(models.Model):
     quantity = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], blank=False
     )
-    cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    cost = (
+        models.DecimalField(
+            max_digits=10,
+            decimal_places=2,
+            default=Decimal(0.00),
+            validators=[MinValueValidator(0)],
+        )
+    )
 
     class Meta:
         verbose_name_plural = "Recipe Inventory"
@@ -141,34 +159,19 @@ class RecipeInventory(models.Model):
         """
         Calculate the cost of a RecipeInventory item based on the latest InventoryHistory.
         """
-        latest_history = (
-            InventoryHistory.objects.filter(inventory_item=self.inventory_item, is_addition=True)
-            .order_by("-incident_date")[:2]
-        )
+        latest_history = InventoryHistory.objects.filter(
+            inventory_item=self.inventory_item, is_addition=True
+        ).order_by("-incident_date")[:2]
         if latest_history:
-            max_cost = latest_history.aggregate(Max("cost_per_unit"))["cost_per_unit__max"]
+            max_cost = latest_history.aggregate(Max("cost_per_unit"))[
+                "cost_per_unit__max"
+            ]
             if max_cost is not None:
                 self.cost = Decimal(max_cost) * Decimal(self.quantity)
-                     
+
     def save(self, *args, **kwargs):
         """
         Override save method to calculate cost before saving.
         """
         self.calculate_cost()
         super().save(*args, **kwargs)
-
-
-@receiver(post_save, sender=InventoryHistory)
-def update_recipe_inventory_cost(sender, instance, **kwargs):
-    """
-    Update the cost of the RecipeInventory item based on the latest InventoryHistory.
-    """
-    if instance.is_addition:
-        recipe_inventories = RecipeInventory.objects.filter(
-            inventory_item=instance.inventory_item
-        )
-        if recipe_inventories.exists():
-            for recipe_inventory in recipe_inventories:
-                recipe_inventory.save() # This will call the overridden save method which calculates the cost
-        
-        

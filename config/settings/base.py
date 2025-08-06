@@ -67,6 +67,7 @@ THIRD_PARTY_APPS = [
     "debug_toolbar",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
+    "djmoney"
 ]
 
 LOCAL_APPS = [
@@ -75,6 +76,7 @@ LOCAL_APPS = [
     "apps.customers.apps.CustomersConfig",
     "apps.inventory.apps.InventoryConfig",
     "apps.recipes.apps.RecipesConfig",
+    "apps.orders.apps.OrdersConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -297,9 +299,9 @@ REST_AUTH = {
 
 # django-allauth
 # https://docs.allauth.org/en/dev/account/configuration.html
-ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
-ACCOUNT_LOGIN_METHODS = {"email", "username"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username", "password1*", "password2*"]
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_CONFIRMATION_HMAC = True
 ACCOUNT_USERNAME_REQUIRED = False
@@ -359,3 +361,17 @@ if DEBUG:
 # Admin credentials for initial setup
 ADMIN_EMAIL = env('ADMIN_EMAIL')
 ADMIN_PASSWORD = env('ADMIN_PASSWORD')
+
+# Redis Cache Configuration
+# https://django-redis.readthedocs.io/en/stable/
+CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"), # type: ignore
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
+        }
+    }
+}
