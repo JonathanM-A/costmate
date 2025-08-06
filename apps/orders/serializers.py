@@ -37,18 +37,13 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
         return representation
 
 
-# class OrderRecipesSerializer(serializers.Serializer):
-#     order_recipes = OrderRecipeSerializer(many=True, write_only=True)
-#     quantity = serializers.IntegerField(min_value=1, default=1, write_only=True)
-
-
 class OrderSerializer(serializers.ModelSerializer):
     recipes = serializers.ListField(
         child=serializers.DictField(), min_length=1, write_only=True
     )
     order_recipes = OrderRecipeSerializer(many=True, read_only=True)
     customer = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.all(), write_only=True
+        queryset=Customer.objects.all()
     )
 
     class Meta:
@@ -87,12 +82,15 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             order_instance = Order.objects.create(**validated_data)
 
-            for recipe in recipes:
-                OrderRecipe.objects.create(
+            order_recipes = [
+                OrderRecipe(
                     order=order_instance,
                     recipe_id=recipe["recipe_id"],
                     quantity=recipe.get("quantity", 1),
                 )
+                for recipe in recipes
+            ]
+            OrderRecipe.objects.bulk_create(order_recipes)
             order_instance.save()
             return order_instance
 
@@ -104,15 +102,23 @@ class OrderSerializer(serializers.ModelSerializer):
             instance = super().update(instance, validated_data)
 
             if recipes is not None:
-                instance.recipes.all().delete()  # Clear existing recipes
+                existing_recipes = set(instance.order_recipes.values_list("id", flat=True))
+                new_recipes = []
 
                 for recipe in recipes:
-                    recipe["order_id"] = instance.id
-                    serializer = OrderRecipeSerializer(
-                        data=recipe, context=self.context
+                    new_recipes.append(
+                        OrderRecipe(
+                            order=instance,
+                            recipe_id=recipe["recipe_id"],
+                            quantity=recipe.get("quantity", 1),
+                        )
                     )
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save()
+                OrderRecipe.objects.bulk_create(new_recipes)
+
+                # Remove recipes that are no longer in the new list
+                if existing_recipes:
+                    OrderRecipe.objects.filter(
+                        id__in=existing_recipes).delete()
 
                 instance.save()
 

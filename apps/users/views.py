@@ -162,12 +162,11 @@ class UserPreferencesView(RetrieveUpdateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return UserPreferences.objects.all()
-            else:
-                return UserPreferences.objects.filter(user=user)
-        return UserPreferences.objects.none()
+        if not user.is_authenticated:
+            return UserPreferences.objects.none()
+        
+        if hasattr(user, 'preferences'):
+            return UserPreferences.objects.filter(user=user)
 
     def retrieve(self, request, *args, **kwargs):
         cache_key = get_preferences_cache_key(request.user.id)
