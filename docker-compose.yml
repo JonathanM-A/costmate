@@ -17,4 +17,19 @@ services:
       - .env  # Load all variables (DB_NAME, DB_USER, etc.) from here
     environment:
       - DB_HOST=host.docker.internal  # Changed from host.docker.internal to db
+      - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
+    depends_on:
+      - redis
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server
+    restart: unless-stopped
+
+volumes:
+  redis_data:

@@ -1,11 +1,9 @@
 from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.dispatch import receiver
-from django.db.models.signals import post_save
+from django.utils import timezone
 from ..common.models import BaseModel
 from ..users.models import User
-from django.utils import timezone
 import uuid
 
 
@@ -65,26 +63,24 @@ class Inventory(BaseModel):
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="created_inventories", blank=False
     )
+
     cost_per_unit = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
-        null=False
     )
     total_value = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
-        null=False,
     )
-
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory"
         unique_together = ["inventory_item", "created_by"]
 
     def calculate_costs(self):
-        inventory_item_history = self.inventory_item.history.filter( # type: ignore
+        inventory_item_history = self.inventory_item.history.filter(  # type: ignore
             is_addition=True
         ).order_by("-incident_date")
         if inventory_item_history.exists():
@@ -97,7 +93,7 @@ class Inventory(BaseModel):
                 )["max_cost"]
                 if max_cost is not None:
                     self.cost_per_unit = Decimal(max_cost)
-                    self.total_value = self.quantity * self.cost_per_unit
+            self.total_value = self.quantity * self.cost_per_unit
 
     def save(self, *args, **kwargs):
         self.calculate_costs()
@@ -120,7 +116,7 @@ class InventoryHistory(BaseModel):
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=0.00,  # type: ignore
+        default= Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
     is_addition = models.BooleanField(default=True)
@@ -132,7 +128,7 @@ class InventoryHistory(BaseModel):
         null=True,
     )
     cost_price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True
+        max_digits=10, decimal_places=2, default=Decimal(0.00), validators=[MinValueValidator(0)]
     )
     incident_date = models.DateField(blank=True, null=True, default=timezone.now)
     created_by = models.ForeignKey(
@@ -141,7 +137,7 @@ class InventoryHistory(BaseModel):
         related_name="created_inventory_history",
         blank=False,
     )
-    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00), validators=[MinValueValidator(0)])
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory History"
@@ -153,16 +149,3 @@ class InventoryHistory(BaseModel):
         if self.quantity > 0:
             self.cost_per_unit = self.cost_price/self.quantity
         super().save(*args, **kwargs)
-
-
-@receiver(post_save, sender=InventoryHistory)
-def update_inventory_values(sender, instance, **kwargs):
-    """
-    Update the total value and cost per unit of the inventory item after saving an InventoryHistory instance.
-    """
-    inventory_entry = instance.inventory_item.inventory.filter(
-        created_by=instance.created_by
-    ).first()
-    if not inventory_entry:
-        return
-    inventory_entry.save() # Ensure the inventory entry is saved to update costs

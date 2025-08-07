@@ -1,23 +1,32 @@
-import requests
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
-from dj_rest_auth.registration.views import RegisterView
-from rest_framework.generics import RetrieveUpdateAPIView
+from rest_framework.generics import RetrieveUpdateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.registration.views import SocialLoginView
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
 import google.oauth2.credentials
 import google.oauth2.id_token
 import google.auth.transport.requests
-from .serializers import CustomRegisterSerializer, UserSerializer, User
+from .serializers import (
+    CustomRegisterSerializer,
+    UserSerializer,
+    User,
+    UserPreferencesSerializer,
+    UserPreferences,
+)
+from .utils import get_preferences_cache_key
 import requests
 import environ
 import logging
+import json
 
 env = environ.Env()
 logger = logging.getLogger(__name__)
@@ -27,7 +36,7 @@ class CustomRegisterView(RegisterView):
     serializer_class = CustomRegisterSerializer
 
 
-class UserRetrieveUpdateView(RetrieveUpdateAPIView):
+class UserView(RetrieveUpdateAPIView):
     """ViewSet for User model"""
 
     permission_classes = [IsAuthenticated]
@@ -128,7 +137,7 @@ class GoogleCallbackView(APIView):
                     "refresh": str(refresh),
                     "access": str(refresh.access_token),
                     "user": {
-                        "pk": user.id, # type: ignore
+                        "pk": user.id,  # type: ignore
                         "email": user.email,
                         "first_name": user.first_name,
                         "last_name": user.last_name,
@@ -142,3 +151,42 @@ class GoogleCallbackView(APIView):
             return Response(
                 {"error": "Authentication failed"}, status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class UserPreferencesView(RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserPreferencesSerializer
+
+    def get_object(self):  # type: ignore
+        return self.request.user.preferences if hasattr(self.request.user, 'preferences') else None
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return UserPreferences.objects.none()
+        
+        if hasattr(user, 'preferences'):
+            return UserPreferences.objects.filter(user=user)
+
+    def retrieve(self, request, *args, **kwargs):
+        cache_key = get_preferences_cache_key(request.user.id)
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        cache.set(cache_key, data, timeout=settings.CACHE_TIMEOUT)
+        return Response(data, status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        cache_key = get_preferences_cache_key(request.user.id)
+        cache.delete(cache_key)  # Invalidate cache on update
+
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            cache.set(cache_key, response.data, timeout=settings.CACHE_TIMEOUT)
+        return response
