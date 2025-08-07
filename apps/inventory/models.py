@@ -79,12 +79,12 @@ class Inventory(BaseModel):
         verbose_name_plural = "Inventory"
         unique_together = ["inventory_item", "created_by"]
 
-    def calculate_costs(self):
+    def calculate_cost(self):
         inventory_item_history = self.inventory_item.history.filter(  # type: ignore
             is_addition=True
-        ).order_by("-incident_date")
+        ).order_by("-incident_date", "-created_at")
         if inventory_item_history.exists():
-            if inventory_item_history.count() > 1:
+            if inventory_item_history.count() < 1:
                 self.cost_per_unit = inventory_item_history[0].cost_per_unit
             else:
                 last_two_history = inventory_item_history[:2]
@@ -94,10 +94,7 @@ class Inventory(BaseModel):
                 if max_cost is not None:
                     self.cost_per_unit = Decimal(max_cost)
             self.total_value = self.quantity * self.cost_per_unit
-
-    def save(self, *args, **kwargs):
-        self.calculate_costs()
-        super().save(*args, **kwargs)
+            self.save()
 
     @property
     def is_below_reorder_level(self):
@@ -145,7 +142,7 @@ class InventoryHistory(BaseModel):
     def __str__(self):
         return str(self.pk)
 
-    def save(self, *args, **kwargs):
+    def calculate_cost(self):
         if self.quantity > 0:
-            self.cost_per_unit = self.cost_price/self.quantity
-        super().save(*args, **kwargs)
+            self.cost_per_unit = self.cost_price / self.quantity
+            self.save()

@@ -105,7 +105,9 @@ class InventoryView(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instances = serializer.save()
         return Response(
-            InventorySerializer(instances, many=True).data,
+            InventorySerializer(
+                instances, many=True, context={"request": request}
+            ).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -281,10 +283,12 @@ class InventoryHistoryView(ListAPIView):
         user = self.request.user
         if user.is_authenticated:
             if user.is_superuser:
-                return InventoryHistory.objects.all().select_related(
-                    "inventory_item", "supplier"
+                return (
+                    InventoryHistory.objects.all()
+                    .select_related("inventory_item", "supplier")
+                    .order_by("-incident_date", "-created_at")
                 )
             else:
                 return InventoryHistory.objects.filter(created_by=user).select_related(
                     "inventory_item", "supplier"
-                )
+                ).order_by("-incident_date", "-created_at")

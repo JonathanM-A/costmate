@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from djmoney.money import Money
 from .models import Recipe, RecipeInventory, RecipeCategory
+from .services import RecipeService
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
 from ..users.utils import get_user_preferrence_from_cache
 import logging
@@ -115,60 +116,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        ingredients = validated_data.pop("ingredients")
-        validated_data["created_by"] = self.context["request"].user
-
-        profit_margin = validated_data.get("profit_margin", None)
-        labour_rate = validated_data.get("labour_rate", None)
-
-        if not profit_margin:
-            default_profit_margin = get_user_preferrence_from_cache(
-                self.context["request"].user, "profit_margin", 30.00
-            )
-            validated_data["profit_margin"] = default_profit_margin
-        if not labour_rate:
-            default_labour_rate = get_user_preferrence_from_cache(
-                self.context["request"].user, "labour_rate", 20.00
-            )
-            validated_data["labour_rate"] = default_labour_rate
-
-        with transaction.atomic():
-            recipe_instance = super().create(validated_data)
-
-            for ingredient in ingredients:
-                ingredient["recipe_id"] = recipe_instance.id
-                serializer = RecipeIventorySerializer(
-                    data=ingredient, context=self.context
-                )
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
-
-            recipe_instance.save()
-
-            return recipe_instance
+        user = self.context["request"].user
+        return RecipeService.create_recipe(user, validated_data)
 
     def update(self, instance, validated_data):
-        ingredients = validated_data.pop("ingredients", None)
-        validated_data["created_by"] = self.context["request"].user
-
-        with transaction.atomic():
-            instance = super().update(instance, validated_data)
-
-            if ingredients is not None:
-                # Clear existing ingredients
-                instance.ingredients.all().delete()
-
-                for ingredient in ingredients:
-                    ingredient["recipe_id"] = instance.id
-                    serializer = RecipeIventorySerializer(
-                        data=ingredient, context=self.context
-                    )
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save()
-
-            instance.save()
-
-            return instance
+        return RecipeService.update_recipe(instance, validated_data)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

@@ -3,6 +3,7 @@ from django.db.models import F, Q, When, Case, IntegerField
 from rest_framework import serializers
 from djmoney.money import Money
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory
+from .services import InventoryUpdateService
 from ..users.utils import get_user_preferrence_from_cache
 import logging
 
@@ -176,88 +177,7 @@ class InventorySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         entries = validated_data.pop("entries")
-        modified_inventory_instances = []
-        inventory_history_to_create = []
-
-        with transaction.atomic():
-            for entry in entries:
-                inventory_item_id = entry.get("inventory_item_id")
-                quantity = entry.get("quantity")
-                cost_price = entry.get("cost_price")
-                supplier_id = entry.get("supplier_id")
-                incident_date = entry.get("incident_date")
-
-                inventory_history_data = {
-                    "inventory_item_id": inventory_item_id,
-                    "quantity": quantity,
-                    "supplier_id": supplier_id,
-                    "cost_price": cost_price,
-                    "incident_date": incident_date,
-                    "created_by": user,
-                }
-                inventory_history_to_create.append(inventory_history_data)
-
-                modified_inventory_instances.append(
-                    {"id": inventory_item_id, "quantity": quantity}
-                )
-
-            # Bulk create inventory history entries
-            InventoryHistory.objects.bulk_create(inventory_history_to_create)
-
-            inventory_updates = {}
-            # Aggregate quantities for each inventory item
-            for item in modified_inventory_instances:
-                inventory_updates[item["id"]] = (
-                    inventory_updates.get(item["id"], 0) + item["quantity"]
-                )
-
-            # Get existing inventory entries that need updating
-            existing_inventory = Inventory.objects.filter(
-                created_by=user.id, is_active=True,
-                inventory_item__id__in=inventory_updates.keys(),
-            ).select_for_update()
-
-            # Bulk create new inventory entries for items not already in inventory
-            existing_ids = set(
-                existing_inventory.values_list("inventory_item_id", flat=True)
-            )
-
-            missing_ids = set(inventory_updates.keys()) - existing_ids
-            if missing_ids:
-                Inventory.objects.bulk_create(
-                    [
-                        Inventory(
-                            inventory_item_id=item_id,
-                            quantity=inventory_updates[item_id],
-                            created_by=user,
-                        )
-                        for item_id in missing_ids
-                    ]
-                )
-
-            # Update existing inventory entries
-            if existing_inventory.exists():
-                case_staments = []
-                for item_id, quantity in inventory_updates.items():
-                    if item_id in existing_ids:
-                        case_staments.append(
-                            When(
-                                inventory_item_id=item_id, then=F("quantity") + quantity
-                            )
-                        )
-                Inventory.objects.filter(
-                    created_by=user.id,
-                    is_active=True,
-                    inventory_item_id__in=existing_ids,
-                ).update(quantity=Case(*case_staments, output_field=IntegerField()))
-                
-        return list(
-            Inventory.objects.filter(
-                created_by=user.id,
-                is_active=True,
-                inventory_item__id__in=inventory_updates.keys(),
-            ).select_related("inventory_item")
-        )
+        return InventoryUpdateService.process_inventory_updates(user, entries)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

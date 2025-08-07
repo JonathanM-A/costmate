@@ -108,7 +108,7 @@ class Recipe(BaseModel):
         User, on_delete=models.CASCADE, blank=False, related_name="recipes"
     )
 
-    def calculate_costs(self):
+    def calculate_cost(self):
         """
         Calculate and update inventory_items_cost, cost_price, and selling_price.
         Should be called after the Recipe and its RecipeInventory items are saved.
@@ -130,7 +130,7 @@ class Recipe(BaseModel):
         self.selling_price = self.cost_price * (1 + (self.profit_margin / Decimal(100)))
 
     def save(self, *args, **kwargs):
-        self.calculate_costs()
+        self.calculate_cost()
         super().save(*args, **kwargs)
 
     def __str__(self):
