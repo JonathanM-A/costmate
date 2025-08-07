@@ -11,6 +11,8 @@ def update_inventory_values(sender, instance, **kwargs):
     inventory_entry = instance.inventory_item.inventory.filter(
         created_by=instance.created_by
     ).first()
+    print(instance.cost_per_unit)
     if not inventory_entry:
         return
-    inventory_entry.save()  # Ensure the inventory entry is saved to update costs
+    print("RUNNING:", inventory_entry.cost_per_unit)
+    inventory_entry.calculate_cost()
