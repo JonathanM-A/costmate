@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.generics import RetrieveUpdateAPIView, RetrieveAPIView
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
@@ -26,7 +26,6 @@ from .utils import get_preferences_cache_key
 import requests
 import environ
 import logging
-import json
 
 env = environ.Env()
 logger = logging.getLogger(__name__)

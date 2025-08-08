@@ -4,7 +4,6 @@ from rest_framework import serializers
 from djmoney.money import Money
 from ..users.utils import get_user_preferrence_from_cache
 from .models import Order, Customer, Recipe, OrderRecipe
-from ..recipes.serializers import RecipeSerializer
 
 
 class OrderRecipeSerializer(serializers.ModelSerializer):
@@ -27,13 +26,17 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
                 Q(is_active=True) | Q(created_by=user.id)
             )
         return fields
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["line_value"] = str(Money(
-            amount=instance.line_value,
-            currency=get_user_preferrence_from_cache(self.context["request"].user, "currency", "USD")
-        ))
+        representation["line_value"] = str(
+            Money(
+                amount=instance.line_value,
+                currency=get_user_preferrence_from_cache(
+                    self.context["request"].user, "currency", "USD"
+                ),
+            )
+        )
         return representation
 
 
@@ -42,14 +45,19 @@ class OrderSerializer(serializers.ModelSerializer):
         child=serializers.DictField(), min_length=1, write_only=True
     )
     order_recipes = OrderRecipeSerializer(many=True, read_only=True)
-    customer = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.all()
-    )
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
 
     class Meta:
         model = Order
         exclude = ["created_at", "updated_at", "created_by", "is_active"]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "status", "order_no"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "status",
+            "order_no",
+        ]
 
     def get_fields(self):
         fields = super().get_fields()
@@ -60,21 +68,19 @@ class OrderSerializer(serializers.ModelSerializer):
                 Q(is_active=True) | Q(created_by=user.id)
             )
         return fields
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        currency = get_user_preferrence_from_cache(self.context["request"].user, "currency", "USD")
-        representation["total_value"] = str(Money(
-            amount=instance.total_value,
-            currency=currency
-        ))
-        representation["profit"] = str(Money(
-            amount=instance.profit,
-            currency=currency
-        ))
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user, "currency", "USD"
+        )
+        representation["total_value"] = str(
+            Money(amount=instance.total_value, currency=currency)
+        )
+        representation["profit"] = str(Money(amount=instance.profit, currency=currency))
         representation["profit_percentage"] = str(instance.profit_percentage) + "%"
         return representation
-        
+
     def create(self, validated_data):
         recipes = validated_data.pop("recipes")
         validated_data["created_by"] = self.context["request"].user
@@ -102,7 +108,9 @@ class OrderSerializer(serializers.ModelSerializer):
             instance = super().update(instance, validated_data)
 
             if recipes is not None:
-                existing_recipes = set(instance.order_recipes.values_list("id", flat=True))
+                existing_recipes = set(
+                    instance.order_recipes.values_list("id", flat=True)
+                )
                 new_recipes = []
 
                 for recipe in recipes:
@@ -117,8 +125,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
                 # Remove recipes that are no longer in the new list
                 if existing_recipes:
-                    OrderRecipe.objects.filter(
-                        id__in=existing_recipes).delete()
+                    OrderRecipe.objects.filter(id__in=existing_recipes).delete()
 
                 instance.save()
 

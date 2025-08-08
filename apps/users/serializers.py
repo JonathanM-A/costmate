@@ -3,7 +3,7 @@ from rest_framework.exceptions import ValidationError
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from allauth.account.adapter import get_adapter
 from allauth.account.utils import setup_user_email
-from .models import User, UserPreferences#BusinessType, Goal
+from .models import User, UserPreferences
 import logging
 
 logger = logging.getLogger(__name__)

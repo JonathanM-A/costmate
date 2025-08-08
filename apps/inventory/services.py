@@ -42,7 +42,6 @@ class InventoryUpdateService:
         # Updating cost for affected Recipes
         RecipeService._bulk_update_recipe_inventory_costs(item_ids, user)
 
-
     @staticmethod
     def _prepare_data(user, entries):
         """Structure entries data"""
