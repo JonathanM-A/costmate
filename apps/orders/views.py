@@ -11,7 +11,7 @@ class OrderViewSet(ModelViewSet):
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "put", "patch"]
+    http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
     filter_fields = ["status", "delivery_date"]
 
@@ -37,8 +37,6 @@ class OrderViewSet(ModelViewSet):
         context["request"] = self.request
         return context
 
-    def partial_update(self, request, *args, **kwargs):
-        raise NotImplementedError("Partial update is not allowed for this viewset.")
 
     @action(methods=["patch"], detail=True, url_path="update-status")
     def update_status(self, request, pk=None, **kwargs):

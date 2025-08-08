@@ -113,7 +113,7 @@ class InventoryHistory(BaseModel):
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default= Decimal(0.00),
+        default=Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
     is_addition = models.BooleanField(default=True)
@@ -125,7 +125,10 @@ class InventoryHistory(BaseModel):
         null=True,
     )
     cost_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal(0.00), validators=[MinValueValidator(0)]
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
     )
     incident_date = models.DateField(blank=True, null=True, default=timezone.now)
     created_by = models.ForeignKey(
@@ -134,7 +137,12 @@ class InventoryHistory(BaseModel):
         related_name="created_inventory_history",
         blank=False,
     )
-    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00), validators=[MinValueValidator(0)])
+    cost_per_unit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
+    )
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory History"

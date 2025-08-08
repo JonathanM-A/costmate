@@ -24,7 +24,9 @@ class Order(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
-    profit_percentage = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    profit_percentage = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal(0.00)
+    )
     profit = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -50,12 +52,12 @@ class Order(BaseModel):
         Calculate the total value of the order based on the associated recipes.
         """
         self.total_value = sum(recipe.selling_price for recipe in self.recipes.all())
-        total_cost_price = sum(
-            recipe.cost_price for recipe in self.recipes.all()
-        )
+        total_cost_price = sum(recipe.cost_price for recipe in self.recipes.all())
         self.profit = self.total_value - total_cost_price
         self.profit_percentage = (
-            (self.profit / total_cost_price * 100) if total_cost_price > 0 else Decimal(0.00)
+            (self.profit / total_cost_price * 100)
+            if total_cost_price > 0
+            else Decimal(0.00)
         )
 
     def save(self, *args, **kwargs):

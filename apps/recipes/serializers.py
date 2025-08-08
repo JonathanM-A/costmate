@@ -1,4 +1,3 @@
-from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 from djmoney.money import Money
@@ -75,9 +74,7 @@ class IngredientSerializer(serializers.Serializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    # recipe_ingredients = RecipeIventorySerializer(
-    #     many=True, read_only=True, source="ingredients"
-    # )
+
     ingredients = serializers.ListField(
         child=IngredientSerializer(), min_length=1, write_only=True
     )
@@ -87,7 +84,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         source="category",
         required=False,
     )
-    category = RecipeCategorySerializer(read_only=True)
 
     def get_fields(self):
         fields = super().get_fields()
@@ -97,7 +93,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             fields["category_id"].queryset = fields["category_id"].queryset.filter(
                 created_by=user.id
             )
-            print("HERE")
         return fields
 
     class Meta:
