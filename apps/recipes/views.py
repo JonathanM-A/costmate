@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from .serializers import (
     RecipeSerializer,
+    RecipeDetailSerializer,
     Recipe,
     RecipeInventory,
     RecipeCategorySerializer,
@@ -17,7 +18,7 @@ class RecipeViewset(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Recipe.objects.none()
     serializer_class = RecipeSerializer
-    http_method_names = ["get", "post", "put", "delete"]
+    http_method_names = ["get", "post", "patch", "delete"]
     search_fields = ["name"]
     filter_fields = ["category"]
 
@@ -33,48 +34,15 @@ class RecipeViewset(ModelViewSet):
         )
 
         return (
-            base_queryset.prefetch_related("inventory_items")
-            .select_related("created_by")
+            base_queryset.prefetch_related("inventory_items", "ingredients")
+            .select_related("created_by", "category")
             .order_by("name")
         )
-
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-
-        ingredient_updates = request.data.get("ingredients", None)
-
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        if ingredient_updates:
-            for item in ingredient_updates:
-                inventory_item_id = item.get("inventory_item_id")
-                new_quantity = item.get("quantity")
-
-                if inventory_item_id and new_quantity:
-                    try:
-                        recipe_inventory, created = (
-                            RecipeInventory.objects.get_or_create(
-                                recipe=instance,
-                                inventory_item__id=inventory_item_id,
-                                defaults={
-                                    "quantity": new_quantity,
-                                    "inventory_item_id": inventory_item_id,
-                                },
-                            )
-                        )
-                        if not created:
-                            recipe_inventory.quantity = new_quantity
-                            recipe_inventory.save()
-                    except ValidationError as e:
-                        return Response(
-                            {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
-                        )
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return RecipeDetailSerializer
+        return super().get_serializer_class()
 
 
 class RecipeCategoryViewset(ModelViewSet):

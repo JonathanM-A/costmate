@@ -1,11 +1,9 @@
 from django.db import transaction
-from django.db.models import Case, When, DecimalField, F
+from django.db.models import Case, When, DecimalField, F, Subquery, OuterRef, Max
 from django.db.models.functions import Cast
-from django.db.models.signals import post_save
 from django.db.models import CharField
 from .models import Inventory, InventoryHistory
-from .signals import update_inventory_values
-from ..recipes.signals import update_recipe_inventory_cost
+from ..recipes.services import RecipeService
 
 
 class InventoryUpdateService:
@@ -17,15 +15,6 @@ class InventoryUpdateService:
         3. Manages database transactions
         """
         with transaction.atomic():
-            # Disconnect signals temporarily
-            post_save.disconnect(
-                receiver=update_inventory_values,
-                sender=InventoryHistory
-            )
-            post_save.disconnect(
-                receiver=update_recipe_inventory_cost,
-                sender=InventoryHistory
-            )
 
             histories, updates = cls._prepare_data(user, entries)
 
@@ -33,11 +22,26 @@ class InventoryUpdateService:
 
             updated_items = cls._update_inventory(user, updates)
 
-            transaction.on_commit(
-                lambda: cls._trigger_cost_calculations(histories)
-            )
+            transaction.on_commit(lambda: cls._cascade_cost_updates(histories, user))
 
             return updated_items.select_related("inventory_item")
+
+    @classmethod
+    def _cascade_cost_updates(cls, histories, user):
+        """Update all affected costs"""
+        # Calculate cost for InventoryHistory instances
+        for history in histories:
+            history.calculate_cost()
+
+        # Get unique inventory_items that were updated
+        item_ids = {h.inventory_item_id for h in histories}
+
+        # Updating inventory costs
+        cls._bulk_update_inventory_costs(item_ids, user)
+
+        # Updating cost for affected Recipes
+        RecipeService._bulk_update_recipe_inventory_costs(item_ids, user)
+
 
     @staticmethod
     def _prepare_data(user, entries):
@@ -49,14 +53,16 @@ class InventoryUpdateService:
             item_id = entry["inventory_item_id"]
             quantity = entry["quantity"]
 
-            histories.append(InventoryHistory(
-                inventory_item_id=item_id,
-                quantity=quantity,
-                supplier_id=entry.get("supplier_id"),
-                cost_price=entry.get("cost_price"),
-                incident_date=entry.get("incident_date"),
-                created_by=user
-            ))
+            histories.append(
+                InventoryHistory(
+                    inventory_item_id=item_id,
+                    quantity=quantity,
+                    supplier_id=entry.get("supplier_id"),
+                    cost_price=entry.get("cost_price"),
+                    incident_date=entry.get("incident_date"),
+                    created_by=user,
+                )
+            )
             # Aggregating quantities
             updates[item_id] = updates.get(item_id, 0) + quantity
 
@@ -71,8 +77,7 @@ class InventoryUpdateService:
     def _update_inventory(user, updates):
         """Handle all inventory updates"""
         existing = Inventory.objects.filter(
-            created_by=user,
-            inventory_item_id__in=updates.keys()
+            created_by=user, inventory_item_id__in=updates.keys()
         ).select_for_update()
 
         # Casting UUIDs to str for comparison
@@ -85,14 +90,16 @@ class InventoryUpdateService:
         # Creating new items
         new_ids = set(updates.keys()) - existing_ids
         if new_ids:
-            Inventory.objects.bulk_create([
-                Inventory(
-                    inventory_item_id=item_id,
-                    quantity=updates[item_id],
-                    created_by=user
-                )
-                for item_id in new_ids
-            ])
+            Inventory.objects.bulk_create(
+                [
+                    Inventory(
+                        inventory_item_id=item_id,
+                        quantity=updates[item_id],
+                        created_by=user,
+                    )
+                    for item_id in new_ids
+                ]
+            )
 
         # Updating existing items using Case statements
         if existing.exists():
@@ -103,22 +110,32 @@ class InventoryUpdateService:
             ]
             Inventory.objects.filter(
                 created_by=user, inventory_item_id__in=existing_ids
-            ).update(
-                quantity=Case(*cases, output_field=DecimalField())
-            )
+            ).update(quantity=Case(*cases, output_field=DecimalField()))
         return Inventory.objects.filter(
-            created_by=user,
-            inventory_item_id__in=updates.keys()
+            created_by=user, inventory_item_id__in=updates.keys()
         )
 
-    @classmethod
-    def _trigger_cost_calculations(cls, histories):
-        """Reconnect signals and trigger processing"""
-        post_save.connect(
-                receiver=update_inventory_values, sender=InventoryHistory
+    @staticmethod
+    def _bulk_update_inventory_costs(item_ids, user):
+        # Get the Max cost_per_unit from last two inventory additions
+        last_two_costs = InventoryHistory.objects.filter(
+            inventory_item=OuterRef("inventory_item_id"),
+            is_addition=True,
+            created_by=user,
+        ).order_by("-incident_date", "-created_at")[:2]
+
+        # Update the costs directly in the db in one query
+        return (
+            Inventory.objects.filter(inventory_item_id__in=item_ids, created_by=user)
+            .annotate(
+                recent_max_cost=Subquery(
+                    last_two_costs.values("cost_per_unit")
+                    .annotate(max_cost=Max("cost_per_unit"))
+                    .values("max_cost")[:1]
+                )
             )
-        post_save.connect(
-            receiver=update_recipe_inventory_cost, sender=InventoryHistory
+            .update(
+                cost_per_unit=F("recent_max_cost"),
+                total_value=F("quantity") * F("recent_max_cost"),
+            )
         )
-        for history in histories:
-            history.calculate_cost()
