@@ -5,7 +5,7 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 import uuid
 from ..common.models import BaseModel
-from ..inventory.models import InventoryItem, InventoryHistory
+from ..inventory.models import InventoryItem
 
 User = get_user_model()
 
@@ -20,15 +20,12 @@ class RecipeCategory(BaseModel):
     class Meta:  # type: ignore
         verbose_name_plural = "Recipe Categories"
 
-    def __str__(self):
-        return self.name
-
 
 class Recipe(BaseModel):
-    name = models.CharField(max_length=100, unique=True, blank=False)
+    name = models.CharField(max_length=100, blank=False)
     category = models.ForeignKey(
         RecipeCategory,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name="recipes",
@@ -108,6 +105,10 @@ class Recipe(BaseModel):
         User, on_delete=models.CASCADE, blank=False, related_name="recipes"
     )
 
+    class Meta:
+        unique_together = ["name", "created_by"]
+        ordering = ["name"]
+
     def calculate_cost(self):
         """
         Calculate and update inventory_items_cost, cost_price, and selling_price.
@@ -117,21 +118,14 @@ class Recipe(BaseModel):
             self.labour_cost = (
                 Decimal(self.labour_time.total_seconds() / 3600) * self.labour_rate
             )
-        inventory_items_cost = sum(
-            ri.cost for ri in self.ingredients.all()  # type: ignore
-        )
-        self.inventory_items_cost = inventory_items_cost
         self.cost_price = (
-            inventory_items_cost
+            self.inventory_items_cost
             + self.labour_cost
             + self.packaging_cost
             + self.overhead_cost
         )
         self.selling_price = self.cost_price * (1 + (self.profit_margin / Decimal(100)))
-
-    def save(self, *args, **kwargs):
-        self.calculate_cost()
-        super().save(*args, **kwargs)
+        self.save()
 
     def __str__(self):
         return self.name
@@ -142,39 +136,18 @@ class RecipeInventory(models.Model):
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE, blank=False, related_name="ingredients"
     )
-    inventory_item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE)
+    inventory_item = models.ForeignKey(
+        InventoryItem, on_delete=models.CASCADE, related_name="recipe_inventory"
+    )
     quantity = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], blank=False
     )
-    cost = (
-        models.DecimalField(
-            max_digits=10,
-            decimal_places=2,
-            default=Decimal(0.00),
-            validators=[MinValueValidator(0)],
-        )
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
     )
 
     class Meta:
         verbose_name_plural = "Recipe Inventory"
-
-    def calculate_cost(self):
-        """
-        Calculate the cost of a RecipeInventory item based on the latest InventoryHistory.
-        """
-        latest_history = InventoryHistory.objects.filter(
-            inventory_item=self.inventory_item, is_addition=True
-        ).order_by("-incident_date")[:2]
-        if latest_history:
-            max_cost = latest_history.aggregate(Max("cost_per_unit"))[
-                "cost_per_unit__max"
-            ]
-            if max_cost is not None:
-                self.cost = Decimal(max_cost) * Decimal(self.quantity)
-
-    def save(self, *args, **kwargs):
-        """
-        Override save method to calculate cost before saving.
-        """
-        self.calculate_cost()
-        super().save(*args, **kwargs)

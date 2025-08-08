@@ -14,7 +14,7 @@ logger = logging.Logger(__name__)
 class RecipeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipeCategory
-        fields = ["id", "name", "description"]
+        fields = ["id", "name", "description", "created_by"]
         read_only_fields = ["id", "created_by", "created_at", "updated_at", "is_active"]
 
     def create(self, validated_data):
@@ -57,27 +57,110 @@ class RecipeIventorySerializer(serializers.ModelSerializer):
 
 
 class IngredientSerializer(serializers.Serializer):
-    inventory_item_id = serializers.UUIDField()
+    inventory_item_id = serializers.PrimaryKeyRelatedField(
+        queryset=InventoryItem.objects.all(), write_only=True
+    )
     quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
 
-    def validate_inventory_item_id(self, value):
+    def get_fields(self):
+        fields = super().get_fields()
         user = self.context["request"].user
-        if not InventoryItem.objects.filter(
-            Q(is_default=True) | Q(created_by=user.id), id=value
-        ).exists():
-            raise serializers.ValidationError("Invalid inventory item ID.")
-        return value
+        fields["inventory_item_id"].queryset = InventoryItem.objects.filter(
+            Q(is_default=True) | Q(created_by=user.id)
+        )
+        return fields
+
+    def validate_inventory_item_id(self, value):
+        return value.id
 
 
 class RecipeSerializer(serializers.ModelSerializer):
+    # recipe_ingredients = RecipeIventorySerializer(
+    #     many=True, read_only=True, source="ingredients"
+    # )
+    ingredients = serializers.ListField(
+        child=IngredientSerializer(), min_length=1, write_only=True
+    )
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=RecipeCategory.objects.all(),
+        write_only=True,
+        source="category",
+        required=False,
+    )
+    category = RecipeCategorySerializer(read_only=True)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        user = self.context["request"].user
+
+        if user and "category_id" in fields:
+            fields["category_id"].queryset = fields["category_id"].queryset.filter(
+                created_by=user.id
+            )
+            print("HERE")
+        return fields
+
+    class Meta:
+        model = Recipe
+        fields = [
+            "id",
+            "name",
+            "category",
+            "labour_time",
+            "labour_rate",
+            "packaging_cost",
+            "overhead_cost",
+            "profit_margin",
+            "is_draft",
+            "instructions",
+            "ingredients",
+            "category_id",
+            "cost_price",
+            "selling_price"
+        ]
+        read_only_fields = [
+            "id",
+            "cost_price",
+            "selling_price"
+        ]
+        extra_kwargs={
+            "labour_time": {"write_only": True},
+            "labour_rate": {"write_only": True},
+            "packaging_cost": {"write_only": True},
+            "overhead_cost": {"write_only": True},
+            "instructions": {"write_only": True},
+        }
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        return RecipeService.create_recipe(user, validated_data)
+
+    def update(self, instance, validated_data):
+        return RecipeService.update_recipe(instance, validated_data)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["profit_margin"] = str(instance.profit_margin) + "%"
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user, "currency", "USD"
+        )
+        money_fields = [
+            "cost_price",
+            "selling_price",
+        ]
+        for field in money_fields:
+            if field in representation:
+                amount = representation[field]
+                representation[field] = str(Money(amount, currency))
+        return representation
+
+
+class RecipeDetailSerializer(serializers.ModelSerializer):
     recipe_ingredients = RecipeIventorySerializer(
         many=True, read_only=True, source="ingredients"
     )
     ingredients = serializers.ListField(
         child=IngredientSerializer(), min_length=1, write_only=True
-    )
-    category_id = serializers.PrimaryKeyRelatedField(
-        queryset=RecipeCategory.objects.all(), write_only=True, source="category"
     )
     category = RecipeCategorySerializer(read_only=True)
 
@@ -114,13 +197,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_active",
         ]
-
-    def create(self, validated_data):
-        user = self.context["request"].user
-        return RecipeService.create_recipe(user, validated_data)
-
-    def update(self, instance, validated_data):
-        return RecipeService.update_recipe(instance, validated_data)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

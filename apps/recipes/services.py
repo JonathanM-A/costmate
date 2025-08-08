@@ -1,5 +1,7 @@
 from django.db import transaction
+from django.db.models import OuterRef, Subquery, F, Sum
 from .models import Recipe, RecipeInventory
+from ..inventory.models import Inventory
 from ..users.utils import get_user_preferrence_from_cache
 
 
@@ -11,28 +13,32 @@ class RecipeService:
         # Set defaults
         validated_data.setdefault(
             "profit_margin",
-            get_user_preferrence_from_cache(user, "profit_margin", 30.00)
+            get_user_preferrence_from_cache(user, "profit_margin", 30.00),
         )
         validated_data.setdefault(
-            "profit_margin",
-            get_user_preferrence_from_cache(user, "labour_rate", 20.00)
+            "profit_margin", get_user_preferrence_from_cache(user, "labour_rate", 20.00)
         )
-        
+
         with transaction.atomic():
             # Creating recipe
-            recipe = Recipe.objects.create(
-                created_by=user,
-                **validated_data
-            )
+            recipe = Recipe.objects.create(created_by=user, **validated_data)
 
             # Creating RecipeInventory
-            cls._bulk_create_ingredients(recipe, user, ingredients)
+            recipe_inventories = cls._bulk_create_ingredients(recipe, ingredients)
 
-            # Calculating costs
-            transaction.on_commit(
-                lambda: recipe.calculate_cost()
-            )
+            RecipeInventory.objects.filter()
+
+            item_ids = set(
             
+            )
+
+            item_ids = {ri.inventory_item for ri in recipe_inventories}
+
+            # Calculating costs for RecipeInventory
+            cls._bulk_update_recipe_inventory_costs(item_ids, user)
+
+            recipe.refresh_from_db()
+            recipe.calculate_cost()
             return recipe
 
     @classmethod
@@ -41,45 +47,81 @@ class RecipeService:
 
         with transaction.atomic():
             # Update recipe
-            recipe = super().update(instance, validated_data)
+            update_fields = []
+            for field, value in validated_data.items():
+                setattr(instance, field, value)
+                update_fields.append(field)
+            instance.save(update_fields=update_fields)
 
             if ingredients is not None:
-                cls._bulk_replace_ingredients(recipe, ingredients)
-            
-            transaction.on_commit(
-                lambda: recipe.calculate_cost()
-            )
+                recipe_inventories = cls._bulk_replace_ingredients(instance, ingredients)
 
-            return recipe
+                item_ids = {ri.inventory_item.id for ri in recipe_inventories}
 
+                cls._bulk_update_recipe_inventory_costs(item_ids, user=instance.created_by)
+
+                instance.refresh_from_db()
+                instance.calculate_cost()
+            return instance
 
     @staticmethod
-    def _bulk_create_ingredients(recipe, user, ingredients):
+    def _bulk_create_ingredients(recipe, ingredients):
         """Create all recipe ingredients"""
-        RecipeInventory.objects.bulk_create(
+        recipe_inventories = RecipeInventory.objects.bulk_create(
             [
                 RecipeInventory(
                     recipe=recipe,
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
-                    created_by=user
-                ) for ing in ingredients
+                )
+                for ing in ingredients
             ]
         )
+        return recipe_inventories
 
     @staticmethod
     def _bulk_replace_ingredients(recipe, ingredients):
         """Atomically replace all ingredients"""
         RecipeInventory.objects.filter(recipe=recipe).delete()
 
-        RecipeInventory.objects.bulk_create(
+        recipe_inventories = RecipeInventory.objects.bulk_create(
             [
                 RecipeInventory(
                     recipe=recipe,
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
-                    created_by=recipe.created_by
                 )
                 for ing in ingredients
             ]
         )
+        return recipe_inventories
+
+    @staticmethod
+    def _bulk_update_recipe_inventory_costs(item_ids, user):
+
+        inventories = Inventory.objects.filter(
+            created_by=user, inventory_item=OuterRef("inventory_item_id")
+        )
+
+        ris = RecipeInventory.objects.filter(
+            inventory_item_id__in=item_ids, recipe__created_by=user
+        )
+
+        ris.annotate(cost_per_unit=Subquery(inventories.values("cost_per_unit"))).update(
+            cost=F("quantity") * F("cost_per_unit")
+        )
+
+        affected_recipe_ids = list(ris.values_list("recipe_id", flat=True).distinct())
+
+        if affected_recipe_ids:
+            Recipe.objects.filter(
+                id__in=affected_recipe_ids
+            ).update(
+                inventory_items_cost=Subquery(
+                    RecipeInventory.objects.filter(
+                        recipe_id=OuterRef("id")
+                    ).values("recipe_id").annotate(
+                        sum_cost=Sum("cost")
+                    ).values("sum_cost")[:1]
+                ),
+            )
