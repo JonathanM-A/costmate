@@ -114,32 +114,33 @@ class InventoryView(ModelViewSet):
         response = super().list(request, *args, **kwargs)
         queryset = self.get_queryset()
 
-        # Add aggregated data to the response
-        result = queryset.aggregate(
-            total_count_below_reorder=Count(
-                Case(
-                    When(quantity__lte=F("reorder_level"), then=1),
-                    output_field=IntegerField(),
-                )
-            ),
-            total_count_above_reorder=Count(
-                Case(
-                    When(quantity__gt=F("reorder_level"), then=1),
-                    output_field=IntegerField(),
-                )
-            ),
-            total_value=Sum("total_value", output_field=IntegerField()),
-        )
-
-        # If response.data is a list, wrap it in a dict
-        response.data["total_count_below_reorder"] = result["total_count_below_reorder"]
-        response.data["total_count_above_reorder"] = result["total_count_above_reorder"]
-        response.data["total_value"] = str(
-            Money(
-                result["total_value"],
-                get_user_preferrence_from_cache(self.request.user, "currency", "USD"),
+        if queryset:
+            # Add aggregated data to the response
+            result = queryset.aggregate(
+                total_count_below_reorder=Count(
+                    Case(
+                        When(quantity__lte=F("reorder_level"), then=1),
+                        output_field=IntegerField(),
+                    )
+                ),
+                total_count_above_reorder=Count(
+                    Case(
+                        When(quantity__gt=F("reorder_level"), then=1),
+                        output_field=IntegerField(),
+                    )
+                ),
+                total_value=Sum("total_value"),
             )
-        )
+
+            # If response.data is a list, wrap it in a dict
+            response.data["total_count_below_reorder"] = result["total_count_below_reorder"]
+            response.data["total_count_above_reorder"] = result["total_count_above_reorder"]
+            response.data["total_value"] = str(
+                Money(
+                    result["total_value"],
+                    get_user_preferrence_from_cache(self.request.user, "currency", "USD"),
+                )
+            )
 
         return response
 

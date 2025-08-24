@@ -13,30 +13,35 @@ class OrderViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
-    filter_fields = ["status", "delivery_date"]
+    filterset_fields = ["status", "delivery_date", "created_at"]
 
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
             return Order.objects.none()
-        
-        base_queryset = Order.objects.all() if user.is_superuser else Order.objects.filter(created_by=user)
-        
-        return base_queryset.select_related(
-            "customer"
-        ).prefetch_related(
-            Prefetch(
-                "order_recipes",
-                queryset=OrderRecipe.objects.select_related("recipe"),
-                to_attr="prefetched_order_recipes"
+
+        base_queryset = (
+            Order.objects.all()
+            if user.is_superuser
+            else Order.objects.filter(created_by=user)
+        )
+
+        return (
+            base_queryset.select_related("customer")
+            .prefetch_related(
+                Prefetch(
+                    "order_recipes",
+                    queryset=OrderRecipe.objects.select_related("recipe"),
+                    to_attr="prefetched_order_recipes",
+                )
             )
-        ).order_by("-created_at")
+            .order_by("-created_at")
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
-
 
     @action(methods=["patch"], detail=True, url_path="update-status")
     def update_status(self, request, pk=None, **kwargs):
