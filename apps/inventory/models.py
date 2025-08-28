@@ -1,18 +1,19 @@
 from decimal import Decimal
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 from ..common.models import BaseModel
-from ..users.models import User
 import uuid
 
+User = get_user_model()
 
 class InventoryItem(BaseModel):
     name = models.CharField(max_length=50, unique=True)
     unit = models.CharField(max_length=20, blank=True, null=True)
     is_default = models.BooleanField(default=False)
     created_by = models.ForeignKey(
-        User,
+        get_user_model(),
         on_delete=models.CASCADE,
         related_name="created_inventory_items",
         blank=False,
@@ -29,7 +30,7 @@ class Supplier(BaseModel):
     name = models.CharField(max_length=100, unique=True)
     contact = models.CharField(max_length=20, blank=True, null=True)
     created_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="created_suppliers", blank=False
+        get_user_model(), on_delete=models.CASCADE, related_name="created_suppliers", blank=False
     )
 
     def __str__(self):
@@ -132,7 +133,7 @@ class InventoryHistory(BaseModel):
     )
     incident_date = models.DateField(blank=True, null=True, default=timezone.now)
     created_by = models.ForeignKey(
-        User,
+        get_user_model(),
         on_delete=models.CASCADE,
         related_name="created_inventory_history",
         blank=False,

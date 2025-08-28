@@ -26,6 +26,7 @@ from .serializers import (
     InventorySerializer,
     InventoryHistorySerializer,
 )
+from .filters import InventoryFilter
 from ..recipes.serializers import RecipeSerializer
 from ..users.utils import get_user_preferrence_from_cache
 
@@ -59,12 +60,14 @@ class SupplierViewset(ModelViewSet):
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return Supplier.objects.all()
-            return Supplier.objects.filter(
-                created_by=user, is_active=True
-            ).select_related("created_by")
+        if not user.is_authenticated:
+            return Supplier.objects.none()
+        
+        base_queryset = (
+            Supplier.objects.all() if user.is_superuser
+            else Supplier.objects.filter(is_active=True, created_by=user)
+        )
+        return base_queryset.select_related("created_by").order_by("name")
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -81,23 +84,26 @@ class InventoryView(ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "delete", "post", "patch", "put"]
     search_fields = ["inventory_item__name"]
+    filterset_class = InventoryFilter
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_superuser:
-                return Inventory.objects.all()
-            return (
-                Inventory.objects.filter(created_by=user, is_active=True)
-                .annotate(
-                    below_reorder=Case(
-                        When(quantity__lt=F("reorder_level"), then=Value(True)),
-                        default=Value(False),
-                        output_field=BooleanField(),
-                    )
-                )
-                .select_related("inventory_item")
+        if not user.is_authenticated:
+            return Inventory.objects.none()
+
+        base_queryset = (
+            Inventory.objects.all()
+            if user.is_superuser
+            else Inventory.objects.filter(created_by=user, is_active=True)
+        )
+
+        return base_queryset.annotate(
+            below_reorder=Case(
+                When(quantity__lt=F("reorder_level"), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
             )
+        ).select_related("inventory_item")
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -111,12 +117,11 @@ class InventoryView(ModelViewSet):
         )
 
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        queryset = self.get_queryset()
+        base_queryset = self.get_queryset()
 
-        if queryset:
+        if base_queryset:
             # Add aggregated data to the response
-            result = queryset.aggregate(
+            aggregated_data = base_queryset.aggregate(
                 total_count_below_reorder=Count(
                     Case(
                         When(quantity__lte=F("reorder_level"), then=1),
@@ -132,17 +137,57 @@ class InventoryView(ModelViewSet):
                 total_value=Sum("total_value"),
             )
 
-            # If response.data is a list, wrap it in a dict
-            response.data["total_count_below_reorder"] = result["total_count_below_reorder"]
-            response.data["total_count_above_reorder"] = result["total_count_above_reorder"]
-            response.data["total_value"] = str(
-                Money(
-                    result["total_value"],
-                    get_user_preferrence_from_cache(self.request.user, "currency", "USD"),
-                )
-            )
+            queryset = self.filter_queryset(self.get_queryset())
 
-        return response
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+
+                response = self.get_paginated_response(serializer.data)
+                response.data.update(aggregated_data)
+                response.data["total_value"] = str(
+                    Money(
+                        aggregated_data["total_value"],
+                        get_user_preferrence_from_cache(
+                            self.request.user, "currency", "USD"
+                        ),
+                    )
+                )
+                return response
+
+            serializer = self.get_serializer(queryset, many=True)
+            response_data = {
+                "results": serializer.data,
+                **aggregated_data,
+                "total_value": str(
+                    Money(
+                        aggregated_data["total_value"] or 0,
+                        get_user_preferrence_from_cache(
+                            self.request.user, "currency", "USD"
+                        ),
+                    )
+                ),
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        #     if response.data:
+        #         # If response.data is a list, wrap it in a dict
+        #         response.data["total_count_below_reorder"] = result[
+        #             "total_count_below_reorder"
+        #         ]
+        #         response.data["total_count_above_reorder"] = result[
+        #             "total_count_above_reorder"
+        #         ]
+        #         response.data["total_value"] = str(
+        #             Money(
+        #                 aggregated_data["total_value"],
+        #                 get_user_preferrence_from_cache(
+        #                     self.request.user, "currency", "USD"
+        #                 ),
+        #             )
+        #         )
+
+        # return response
 
     def partial_update(self, request, *args, **kwargs):
         allowed_fields = {"reorder_level"}
@@ -289,6 +334,8 @@ class InventoryHistoryView(ListAPIView):
                     .order_by("-incident_date", "-created_at")
                 )
             else:
-                return InventoryHistory.objects.filter(created_by=user).select_related(
-                    "inventory_item", "supplier"
-                ).order_by("-incident_date", "-created_at")
+                return (
+                    InventoryHistory.objects.filter(created_by=user)
+                    .select_related("inventory_item", "supplier")
+                    .order_by("-incident_date", "-created_at")
+                )
