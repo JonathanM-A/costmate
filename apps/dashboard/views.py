@@ -2,8 +2,7 @@ from datetime import datetime
 from djmoney.money import Money
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import F, Sum, Count, DecimalField, Aggregate, TextField
-from django.db.models.functions import Coalesce
+from django.db.models import F, Sum, Count, Aggregate, TextField
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +10,9 @@ from rest_framework import status
 from ..orders.models import Order, OrderRecipe
 from ..orders.serializers import OrderSerializer
 from ..inventory.models import Inventory
+from ..notifications.models import Notification
 from ..users.utils import get_user_preferrence_from_cache
+from..notifications.utils import check_upcoming_deliveries
 
 
 class MoneyAggregate(Aggregate):
@@ -22,7 +23,7 @@ class MoneyAggregate(Aggregate):
         super().__init__(expression, outputfield=TextField(), **extra)
         self.currency = currency
 
-    def convert_value(self, value, expression, connection):
+    def convert_value(self, value, expression, connection): # type: ignore
         if value is None:
             return str(Money(0, self.currency))
         return str(Money(value, self.currency))
@@ -36,6 +37,14 @@ class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+
+        # Check upcoming deliveries
+        if not request.session.get("deliveries_checked_today"):
+            check_upcoming_deliveries()
+            request.session["deliveries_checked_today"] = True
+            request.session.set_expiry(86400) # 24 hours
+            
+
         # Fetch fields filterable by date
         # Get start_date and end_date from kwargs (if provided)
         start_date_str = request.query_params.get("start_date")
