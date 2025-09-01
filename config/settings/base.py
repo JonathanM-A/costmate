@@ -77,6 +77,9 @@ LOCAL_APPS = [
     "apps.inventory.apps.InventoryConfig",
     "apps.recipes.apps.RecipesConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.notifications.apps.NotificationsConfig",
+    "apps.dashboard.apps.DashboardConfig",
+    "apps.analytics.apps.AnalyticsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -92,6 +95,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "apps.notifications.middleware.NotificationHeaderMiddleware"
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -364,7 +368,7 @@ ADMIN_PASSWORD = env('ADMIN_PASSWORD')
 
 # Redis Cache Configuration
 # https://django-redis.readthedocs.io/en/stable/
-CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours
+CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours # type: ignore
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",

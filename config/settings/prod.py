@@ -79,6 +79,9 @@ LOCAL_APPS = [
     "apps.inventory.apps.InventoryConfig",
     "apps.recipes.apps.RecipesConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.notifications.apps.NotificationsConfig",
+    "apps.dashboard.apps.DashboardConfig",
+    "apps.analytics.apps.AnalyticsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -94,6 +97,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "apps.notifications.middleware.NotificationHeaderMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -344,37 +348,21 @@ SIMPLE_JWT = {
 }
 
 
-# Debug Toolbar
-# https://django-debug-toolbar.readthedocs.io/en/latest/configuration.html
-if DEBUG:
-    INTERNAL_IPS = [
-        "127.0.0.1",
-    ]
-
-
-def show_toolbar(request):
-    return DEBUG
-
-
-DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK": show_toolbar,
-}
-if DEBUG:
-    import mimetypes
-
-    mimetypes.add_type("application/javascript", ".js", True)
-
 # Admin credentials for initial setup
 ADMIN_EMAIL = env("ADMIN_EMAIL")
 ADMIN_PASSWORD = env("ADMIN_PASSWORD")
 
+# Redis Cache Configuration
+# https://django-redis.readthedocs.io/en/stable/
+CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours # type: ignore
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env("REDIS_URL"),
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"), # type: ignore
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
+            "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
+        }
     }
 }
 
