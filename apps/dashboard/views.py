@@ -34,7 +34,7 @@ class DashboardView(APIView):
     Optional filtering by date range using start_date and end_date query parameters.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes=[IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
 
@@ -92,13 +92,12 @@ class DashboardView(APIView):
         )
 
         if start_date:
-            print(start_date)
             completed_orders = completed_orders.filter(
-                created_at__gte=start_date, status="completed"
+                created_at__gte=start_date
             )
         if end_date:
             completed_orders = completed_orders.filter(
-                created_at__lte=end_date, status="completed"
+                created_at__lte=end_date
             )
 
         chart_data = completed_orders.values_list(

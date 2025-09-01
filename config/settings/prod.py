@@ -81,6 +81,7 @@ LOCAL_APPS = [
     "apps.orders.apps.OrdersConfig",
     "apps.notifications.apps.NotificationsConfig",
     "apps.dashboard.apps.DashboardConfig",
+    "apps.analytics.apps.AnalyticsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
