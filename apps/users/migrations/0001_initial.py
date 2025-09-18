@@ -9,7 +9,6 @@ from django.apps import apps as django_apps
 
 
 def create_superuser(apps, schema_editor):
-    User = apps.get_model("users", "User")
     UserModel = django_apps.get_model("users", "User")
 
     # Create superuser
