@@ -64,7 +64,7 @@ class UserManager(BaseUserManager):
         user.set_password(password)
         user.save()
 
-        UserPreferences.objects.create(id=user)
+        UserPreferences.objects.create(user=user)
 
         if not user.is_superuser:
             raise ValueError("Superuser must have is_superuser=True.")
