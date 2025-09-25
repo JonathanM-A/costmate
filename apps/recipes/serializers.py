@@ -84,6 +84,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         source="category",
         required=False,
     )
+    shareable_link = serializers.SerializerMethodField()
 
     def get_fields(self):
         fields = super().get_fields()
@@ -94,6 +95,12 @@ class RecipeSerializer(serializers.ModelSerializer):
                 created_by=user.id
             )
         return fields
+    
+    def get_shareable_link(self, obj):
+        request = self.context.get("request")
+        if request and obj.share_enabled:
+            return obj.get_shareable_link(request)
+        return None
 
     class Meta:
         model = Recipe
@@ -111,7 +118,8 @@ class RecipeSerializer(serializers.ModelSerializer):
             "ingredients",
             "category_id",
             "cost_price",
-            "selling_price"
+            "selling_price",
+            "shareable_link",
         ]
         read_only_fields = [
             "id",

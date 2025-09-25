@@ -1,10 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RecipeViewset, RecipeCategoryViewset
+from .views import RecipeViewset, RecipeCategoryViewset, SharedRecipeViewset
 
 router = DefaultRouter()
 router.register(r"recipe", RecipeViewset, basename="recipe")
 router.register(r"recipe-category", RecipeCategoryViewset, basename="recipe-category")
+router.register(r"shared", SharedRecipeViewset, basename="shared-recipe")
 
 
 urlpatterns = [

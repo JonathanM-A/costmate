@@ -1,5 +1,10 @@
-from rest_framework.viewsets import ModelViewSet
+from django.shortcuts import get_object_or_404
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status
 from .serializers import (
     RecipeSerializer,
     RecipeDetailSerializer,
@@ -38,6 +43,43 @@ class RecipeViewset(ModelViewSet):
         if self.action == "retrieve":
             return RecipeDetailSerializer
         return super().get_serializer_class()
+    
+    @action(detail=True, methods=["post"])
+    def enable_sharing(self, request, pk=None):
+        recipe = self.get_object()
+        recipe.share_enabled = True
+        recipe.regenerate_share_token()
+        recipe.save()
+        return Response(
+            {"shareable_link": recipe.get_shareable_link(request)},
+            status=status.HTTP_200_OK,
+        )
+    
+    @action(detail=True, methods=["post"])
+    def disable_sharing(self, request, pk=None):
+        recipe = self.get_object()
+        recipe.share_enabled = False
+        recipe.share_token = None
+        recipe.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class SharedRecipeViewset(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = Recipe.objects.none()
+    serializer_class = RecipeDetailSerializer
+    lookup_field = "share_token"
+    http_method_names = ["get"]
+
+    def get_queryset(self):  # type: ignore
+        return Recipe.objects.filter(share_enabled=True).prefetch_related(
+            "inventory_items", "ingredients"
+        ).select_related("created_by", "category").order_by("name")
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 class RecipeCategoryViewset(ModelViewSet):
