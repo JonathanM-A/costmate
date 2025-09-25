@@ -1,8 +1,8 @@
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from decimal import Decimal
-import uuid
 from ..common.models import BaseModel
 from ..inventory.models import InventoryItem
 
@@ -103,6 +103,20 @@ class Recipe(BaseModel):
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, blank=False, related_name="recipes"
     )
+
+    # Sharing fields
+    is_public = models.BooleanField(default=False)
+    share_token = models.UUIDField(unique=True, editable=False, null=True)
+    share_enabled = models.BooleanField(default=False)
+
+    def regenerate_share_token(self):
+        self.share_token = uuid.uuid4()
+        self.save()
+
+    def get_shareable_link(self, request):
+        if self.share_token is None:
+            return None
+        return request.build_absolute_uri(f"api/v1/recipes/shared/{self.share_token}/")
 
     class Meta:
         unique_together = ["name", "created_by"]
