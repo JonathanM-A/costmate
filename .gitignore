@@ -170,3 +170,4 @@ smtp_test.py
 logs
 costmate creds.txt
 .vscode
+celerybeat*

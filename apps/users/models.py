@@ -142,6 +142,7 @@ class UserPreferences(BaseModel):
     notification_preferences = models.JSONField(
         default=dict, blank=True, null=True
     )  # Store notification preferences as a JSON object
+    # {"stock_alerts": True, "order_reminder": False, "weekly_reports": True}
 
     def clean(self):
         super().clean()

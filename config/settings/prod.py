@@ -18,6 +18,7 @@ import dj_database_url
 from decouple import config
 from django.utils.log import DEFAULT_LOGGING
 import logging.config
+from celery.schedules import crontab
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -364,6 +365,27 @@ CACHES = {
             "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
         }
     }
+}
+
+# Celery Configuration
+# https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")  # type: ignore
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")  # type: ignore
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = env("TIME_ZONE", default="UTC")  # type: ignore
+
+# Celery Beat Settings
+CELERY_BEAT_SCHEDULE = {
+    "check-upcoming-deliveries-every-morning": {
+        "task": "apps.notifications.tasks.check_upcoming_deliveries",
+        "schedule": crontab(hour=1, minute=0),
+    },
+    "send-weekly-report-notifications-every-monday": {
+        "task": "apps.notifications.tasks.weekly_report_notifications",
+        "schedule": crontab(hour=8, minute=0, day_of_week=1),
+    },
 }
 
 
