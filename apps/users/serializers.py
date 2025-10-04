@@ -14,12 +14,20 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        exclude = ("groups", "user_permissions", "is_staff", "is_superuser")
+        exclude = (
+            "groups",
+            "user_permissions",
+            "is_staff",
+            "is_superuser",
+            "last_login",
+            "created_at",
+            "updated_at",
+            "is_active",
+        )
         extra_kwargs = {
             "password": {"write_only": True},
         }
-        read_only_fields = ("id", "is_active", "is_staff", "is_superuser")
-
+        
 
 class CustomRegisterSerializer(RegisterSerializer):
     username = None  # Disable username field
