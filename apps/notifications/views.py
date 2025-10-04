@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Notification
 from .serializers import NotificationSerializer
+from .utils import invalidate_notification_cache, update_notification_cache
 
 
 class MarkNotificationAsReadView(UpdateAPIView):
@@ -30,6 +31,8 @@ class MarkNotificationAsReadView(UpdateAPIView):
         instance.is_read = True
         instance.save()
         serializer = self.get_serializer(instance)
+        invalidate_notification_cache(request.user.id)
+        update_notification_cache(request.user.id)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -53,6 +56,8 @@ class MarkAllNotificationsAsReadView(GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         updated_count = self.queryset.update(is_read=True)
+        invalidate_notification_cache(request.user.id)
+        update_notification_cache(request.user.id)
         return Response(
             {
                 "message": f"Marked {updated_count} notifications as read.",

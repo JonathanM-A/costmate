@@ -10,9 +10,7 @@ from rest_framework import status
 from ..orders.models import Order, OrderRecipe
 from ..orders.serializers import OrderSerializer
 from ..inventory.models import Inventory
-from ..notifications.models import Notification
 from ..users.utils import get_user_preferrence_from_cache
-from..notifications.utils import check_upcoming_deliveries
 
 
 class MoneyAggregate(Aggregate):
@@ -37,14 +35,6 @@ class DashboardView(APIView):
     permission_classes=[IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-
-        # Check upcoming deliveries
-        if not request.session.get("deliveries_checked_today"):
-            check_upcoming_deliveries()
-            request.session["deliveries_checked_today"] = True
-            request.session.set_expiry(86400) # 24 hours
-            
-
         # Fetch fields filterable by date
         # Get start_date and end_date from kwargs (if provided)
         start_date_str = request.query_params.get("start_date")
