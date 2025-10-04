@@ -116,7 +116,7 @@ class Recipe(BaseModel):
     def get_shareable_link(self, request):
         if self.share_token is None:
             return None
-        return request.build_absolute_uri(f"api/v1/recipes/shared/{self.share_token}/")
+        return request.build_absolute_uri(f"api/v1/shared-recipe/{self.share_token}/")
 
     class Meta:
         unique_together = ["name", "created_by"]

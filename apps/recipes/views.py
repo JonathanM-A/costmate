@@ -80,6 +80,12 @@ class SharedRecipeViewset(ReadOnlyModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+    
+    def list(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "List not allowed. Use the shareable link to access a specific recipe."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
 
 class RecipeCategoryViewset(ModelViewSet):
