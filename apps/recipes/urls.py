@@ -5,7 +5,7 @@ from .views import RecipeViewset, RecipeCategoryViewset, SharedRecipeViewset
 router = DefaultRouter()
 router.register(r"recipe", RecipeViewset, basename="recipe")
 router.register(r"recipe-category", RecipeCategoryViewset, basename="recipe-category")
-router.register(r"shared", SharedRecipeViewset, basename="shared-recipe")
+router.register(r"recipe/shared", SharedRecipeViewset, basename="shared-recipe")
 
 
 urlpatterns = [
