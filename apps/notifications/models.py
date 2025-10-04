@@ -11,6 +11,7 @@ class Notification(BaseModel):
     NOTIFICATION_TYPES = (
         ("REORDER_CHECK", "Reorder level check"),
         ("DELIVERY_REMINDER", "Delivery reminder"),
+        ("WEEKLY_REPORTS", "Weekly reports"),
     )
 
     user = models.ForeignKey(

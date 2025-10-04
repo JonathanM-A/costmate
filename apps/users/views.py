@@ -47,6 +47,7 @@ class UserView(RetrieveUpdateAPIView):
 
     def get_queryset(self):  # type: ignore
         return User.objects.filter(id=self.request.user.id)  # type: ignore
+    
 
 
 class CustomOAuth2Client(OAuth2Client):

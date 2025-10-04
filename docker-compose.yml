@@ -31,5 +31,25 @@ services:
     command: redis-server
     restart: unless-stopped
 
+  celery_worker:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  celery_beat:
+    build: .
+    command: celery -A config beat -l info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
 volumes:
   redis_data:

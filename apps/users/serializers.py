@@ -23,10 +23,8 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_active",
+            "password"
         )
-        extra_kwargs = {
-            "password": {"write_only": True},
-        }
         
 
 class CustomRegisterSerializer(RegisterSerializer):
