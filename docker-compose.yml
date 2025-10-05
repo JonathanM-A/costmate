@@ -62,7 +62,7 @@ services:
     command: celery -A config beat -l info --schedule=tmp/celerybeat-schedule
     volumes:
       - .:/app
-      - celerybeat_schedule:/tmp
+      - /celerybeat_schedule:/tmp
     env_file:
       - .env
     restart: unless-stopped
