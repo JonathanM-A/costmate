@@ -59,7 +59,7 @@ services:
 
   celery_beat:
     build: .
-    command: sh -c "mkdir" -p /app/beat && celery -A config beat -l info --schedule=tmp/celerybeat-schedule
+    command: sh -c "mkdir -p /app/beat && celery -A config beat -l info --schedule=tmp/celerybeat-schedule"
     volumes:
       - .:/app
       - /celerybeat_schedule:/app/beat
