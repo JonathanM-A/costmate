@@ -52,18 +52,20 @@ services:
       - .:/app
     env_file:
       - .env
+    restart: unless-stopped
     depends_on:
       - redis
       - db
 
   celery_beat:
     build: .
-    command: celery -A config beat -l info
+    command: celery -A config beat -l info --schedule=tmp/celerybeat-schedule
     volumes:
       - .:/app
-      - ./celerybeat:/app/celerybeat
+      - celerybeat_schedule:/tmp
     env_file:
       - .env
+    restart: unless-stopped
     depends_on:
       - redis
       - db
@@ -85,3 +87,4 @@ volumes:
   redis_data:
   static_volume:
   media_volume:
+  celerybeat_schedule:
