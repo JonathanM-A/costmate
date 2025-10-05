@@ -59,10 +59,10 @@ services:
 
   celery_beat:
     build: .
-    command: sh -c "mkdir -p /app/beat && celery -A config beat -l info --schedule=tmp/celerybeat-schedule"
+    command: sh -c "mkdir -p /app/beat && celery -A config beat -l info --schedule=/app/beat/celerybeat-schedule"
     volumes:
       - .:/app
-      - /celerybeat_schedule:/app/beat
+      - celerybeat_schedule:/app/beat
     env_file:
       - .env
     restart: unless-stopped
