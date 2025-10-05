@@ -170,24 +170,6 @@ class InventoryView(ModelViewSet):
             }
             return Response(response_data, status=status.HTTP_200_OK)
 
-        #     if response.data:
-        #         # If response.data is a list, wrap it in a dict
-        #         response.data["total_count_below_reorder"] = result[
-        #             "total_count_below_reorder"
-        #         ]
-        #         response.data["total_count_above_reorder"] = result[
-        #             "total_count_above_reorder"
-        #         ]
-        #         response.data["total_value"] = str(
-        #             Money(
-        #                 aggregated_data["total_value"],
-        #                 get_user_preferrence_from_cache(
-        #                     self.request.user, "currency", "USD"
-        #                 ),
-        #             )
-        #         )
-
-        # return response
 
     def partial_update(self, request, *args, **kwargs):
         allowed_fields = {"reorder_level"}

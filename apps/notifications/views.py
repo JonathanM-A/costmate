@@ -55,7 +55,7 @@ class MarkAllNotificationsAsReadView(GenericAPIView):
         return base_queryset.select_related("user").order_by("-created_at")
 
     def post(self, request, *args, **kwargs):
-        updated_count = self.queryset.update(is_read=True)
+        updated_count = self.get_queryset().filter(is_read=False).update(is_read=True)
         invalidate_notification_cache(request.user.id)
         update_notification_cache(request.user.id)
         return Response(
@@ -71,6 +71,7 @@ class ListNotificationsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Notification.objects.none()
     serializer_class = NotificationSerializer
+    filterset_fields = ["is_read"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user

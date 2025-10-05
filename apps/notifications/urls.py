@@ -5,6 +5,7 @@ from .views import (
     MarkAllNotificationsAsReadView,
 )
 
+app_name = "notifications"
 
 urlpatterns = [
     path("notifications/", ListNotificationsView.as_view(), name="list_notifications"),

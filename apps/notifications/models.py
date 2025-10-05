@@ -20,8 +20,8 @@ class Notification(BaseModel):
     notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.UUIDField()
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True)
+    object_id = models.UUIDField(null=True)
     content_object = GenericForeignKey("content_type", "object_id")
     target_url = models.URLField(max_length=500, blank=True, null=True)
 

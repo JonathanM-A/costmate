@@ -51,6 +51,8 @@ class Order(BaseModel):
         """
         Calculate the total value of the order based on the associated recipes.
         """
+        for order_recipe in self.order_recipes.all():
+            order_recipe.save()
         self.total_value = sum(recipe.selling_price for recipe in self.recipes.all())
         total_cost_price = sum(recipe.cost_price for recipe in self.recipes.all())
         self.profit = self.total_value - total_cost_price

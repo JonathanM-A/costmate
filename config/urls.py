@@ -35,7 +35,7 @@ schema_view = get_schema_view(
     public=True,
     permission_classes=(permissions.AllowAny,),
 )
-
+app_name = "api"
 
 urlpatterns = [
     path("admin/", admin.site.urls),

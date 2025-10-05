@@ -94,7 +94,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         return f"{self.first_name} {self.last_name}"
 
 
-ALLOWED_NOTIFICATION_KEYS = {"stock_alerts", "order_updates", "system_updates", "weekly_reports"}
+ALLOWED_NOTIFICATION_KEYS = {"stock_alerts", "order_reminder", "system_updates", "weekly_reports"}
 
 class UserPreferences(BaseModel):
     id = None
@@ -129,7 +129,7 @@ class UserPreferences(BaseModel):
         default="UTC"  # default to UTC, can be changed later
     )
     profit_margin = models.DecimalField(
-        max_digits=3,
+        max_digits=5,
         decimal_places=2,
         default=Decimal("30.00"), # default profit margin of 30%, can be changed later
         help_text="Default profit margin as a percentage (e.g., 30.00 for 30%)"
