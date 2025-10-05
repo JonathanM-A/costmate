@@ -61,6 +61,7 @@ services:
     command: celery -A config beat -l info
     volumes:
       - .:/app
+      - ./celerybeat:/app/celerybeat
     env_file:
       - .env
     depends_on:
