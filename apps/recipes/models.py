@@ -153,7 +153,7 @@ class RecipeInventory(models.Model):
         InventoryItem, on_delete=models.CASCADE, related_name="recipe_inventory"
     )
     quantity = models.DecimalField(
-        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], blank=False
+        max_digits=10, decimal_places=3, validators=[MinValueValidator(0)], blank=False
     )
     cost = models.DecimalField(
         max_digits=10,
