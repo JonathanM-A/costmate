@@ -171,3 +171,5 @@ logs
 costmate creds.txt
 .vscode
 celerybeat*
+docker-compose.override.yml
+/beat

@@ -59,7 +59,7 @@ class IngredientSerializer(serializers.Serializer):
     inventory_item_id = serializers.PrimaryKeyRelatedField(
         queryset=InventoryItem.objects.all(), write_only=True
     )
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=0)
 
     def get_fields(self):
         fields = super().get_fields()

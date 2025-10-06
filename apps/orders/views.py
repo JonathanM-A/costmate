@@ -35,7 +35,7 @@ class OrderViewSet(ModelViewSet):
                     to_attr="prefetched_order_recipes",
                 )
             )
-            .order_by("-created_at")
+            .order_by("delivery_date", "created_at")
         )
 
     def get_serializer_context(self):

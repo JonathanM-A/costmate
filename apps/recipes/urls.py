@@ -7,6 +7,7 @@ router.register(r"recipe", RecipeViewset, basename="recipe")
 router.register(r"recipe-category", RecipeCategoryViewset, basename="recipe-category")
 router.register(r"recipe/shared", SharedRecipeViewset, basename="shared-recipe")
 
+app_name = "recipes"
 
 urlpatterns = [
     path("", include(router.urls))
