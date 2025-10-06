@@ -31,24 +31,24 @@ clean:
 
 # Production commands
 prod-build:
-	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml build
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml build
 	
 prod-up:
-	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml up -d
 
 prod-down:
-	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml down
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml down
 
 prod-logs:
-	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml logs -f
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml logs -f
 
 # Database operations
 db-shell:
-	docker-compose -f docker-compose.base.yml -f docker-compose.override.yml exec db psql -U ${DB_USER} -d ${DB_NAME}
+	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec db psql -U ${DB_USER} -d ${DB_NAME}
 
 # Utility commands
 migrate:
-	docker-compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py migrate
+	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py migrate
 
 collectstatic:
-	docker-compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py collectstatic --noinput
+	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py collectstatic --noinput
