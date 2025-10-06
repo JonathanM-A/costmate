@@ -30,6 +30,9 @@ clean:
 	docker system prune -f
 
 # Production commands
+prod-build:
+	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml build
+	
 prod-up:
 	docker-compose -f docker-compose.base.yml -f docker-compose.prod.yml up -d
 
