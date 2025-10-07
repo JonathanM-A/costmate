@@ -420,6 +420,8 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 CSP_INCLUDE_NONCE_IN = ("script-src", "style-src")
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_CONTENT_TYPE_NOSNIFF = True
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS", default=[], cast=lambda v: v.split(","))
 
 # FILE UPLOAD RESTRICTION---------------------SECURITY
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5.5 MB
