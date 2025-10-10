@@ -169,6 +169,23 @@ class InventoryView(ModelViewSet):
                 ),
             }
             return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {
+                    "results": [],
+                    "total_count_below_reorder": 0,
+                    "total_count_above_reorder": 0,
+                    "total_value": str(
+                        Money(
+                            0,
+                            get_user_preferrence_from_cache(
+                                self.request.user, "currency", "USD"
+                            ),
+                        )
+                    ),
+                },
+                status=status.HTTP_200_OK,
+            )
 
 
     def partial_update(self, request, *args, **kwargs):
