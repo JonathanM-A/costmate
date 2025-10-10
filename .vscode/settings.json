@@ -33,10 +33,11 @@
                     "rejectUnauthorized": true
                 }
             },
+            "ssh": "Disabled",
             "previewLimit": 50,
             "server": "localhost",
             "driver": "PostgreSQL",
-            "connectString": "postgresql://costmate_db_8yd8_user:cJqBwkvWNvIVktdE6ZMgzSuBshARMVe8@dpg-d16s457diees73dhpsbg-a.oregon-postgres.render.com/costmate_db_8yd8",
+            "connectString": "postgresql://costmate_db_qw0w_user:zwSpcS4dSvSvT9mxyzdQDGxMigzxg8JI@dpg-d35nuvqli9vc738ihlgg-a.oregon-postgres.render.com/costmate_db_qw0w",
             "name": "costmate_db"
         }
     ],
