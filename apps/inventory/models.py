@@ -27,11 +27,14 @@ class InventoryItem(BaseModel):
 
 
 class Supplier(BaseModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     contact = models.CharField(max_length=20, blank=True, null=True)
     created_by = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, related_name="created_suppliers", blank=False
     )
+
+    class Meta:  # type: ignore
+        unique_together = ["name", "created_by", "contact"]
 
     def __str__(self):
         return self.name
