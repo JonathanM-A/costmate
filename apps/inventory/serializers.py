@@ -44,6 +44,14 @@ class SupplierSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
+        name = validated_data.get("name")
+        contact = validated_data.get("contact")
+        if Supplier.objects.filter(created_by=validated_data["created_by"], contact=contact, is_active=False).exists():
+            supplier = Supplier.objects.get(
+                created_by=validated_data["created_by"], contact=contact, is_active=False
+            )
+            supplier.activate()
+            return supplier
         return super().create(validated_data)
 
 
