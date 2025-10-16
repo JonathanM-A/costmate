@@ -62,7 +62,7 @@ class RecipeViewset(ModelViewSet):
         recipe.share_token = None
         recipe.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
 
 class SharedRecipeViewset(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
@@ -109,4 +109,12 @@ class RecipeCategoryViewset(ModelViewSet):
             base_queryset.filter(created_by=user)
             .select_related("created_by")
             .order_by("name")
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.deactivate()
+        return Response(
+            {"message": "Category deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
         )

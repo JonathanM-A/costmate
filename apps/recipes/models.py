@@ -10,7 +10,7 @@ User = get_user_model()
 
 
 class RecipeCategory(BaseModel):
-    name = models.CharField(max_length=100, unique=True, blank=False)
+    name = models.CharField(max_length=100, blank=False)
     description = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, blank=False, related_name="recipe_categories"
@@ -18,6 +18,8 @@ class RecipeCategory(BaseModel):
 
     class Meta:  # type: ignore
         verbose_name_plural = "Recipe Categories"
+        unique_together = ["name", "created_by"]
+        ordering = ["name"]
 
 
 class Recipe(BaseModel):
@@ -118,7 +120,7 @@ class Recipe(BaseModel):
             return None
         return request.build_absolute_uri(f"api/v1/shared-recipe/{self.share_token}/")
 
-    class Meta:
+    class Meta: # type: ignore
         unique_together = ["name", "created_by"]
         ordering = ["name"]
 
