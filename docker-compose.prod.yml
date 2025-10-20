@@ -25,7 +25,7 @@ services:
       - ./staticfiles:/app/staticfiles
       - media_volume:/app/media_volume
       - ./certbot-etc:/etc/letsencrypt
-      - ./certbot-var:/www:/varwww/certbot
+      - ./certbot-var:/www:/var/www/certbot
     depends_on:
       - costnav
     restart: unless-stopped
