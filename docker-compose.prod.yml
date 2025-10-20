@@ -35,7 +35,7 @@ services:
     container_name: certbot
     volumes:
       - certbot-etc:/etc/letsencrypt
-      - certbot-var:var/lib/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
     entrypoint: /bin/sh
     command: -c "while true; do sleep 12h; certbot renew; done"
   
