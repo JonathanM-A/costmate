@@ -232,7 +232,7 @@ LOGGING = {
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/costmate.log",
+            "filename": BASE_DIR / "logs/costnav.log",
             "formatter": "concise_error",
         },
         "mail_admins": {
