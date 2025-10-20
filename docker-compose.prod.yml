@@ -22,7 +22,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./staticfiles:/app/staticfiles
+      - ./staticfiles:/app/staticfiles:ro
       - ./media_volume:/app/media_volume
       - /etc/letsencrypt/live/costnav.com:/etc/letsencrypt/live/costnav.com:ro
       - /etc/letsencrypt/archive/costnav.com:/etc/letsencrypt/archive/costnav.com:ro
