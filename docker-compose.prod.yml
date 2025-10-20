@@ -24,8 +24,9 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./staticfiles:/app/staticfiles
       - ./media_volume:/app/media_volume
-      - ./certbot-etc:/etc/letsencrypt
-      - ./certbot-var:/www:/var/www/certbot
+      - /etc/letsencrypt/live/costnav.com:/etc/letsencrypt/live/costnav.com:ro
+      - /etc/letsencrypt/archive/costnav.com:/etc/letsencrypt/archive/costnav.com:ro
+      - /etc/letsencrypt/renewal:/etc/letsencrypt/renewal:ro
     depends_on:
       - costnav
     restart: unless-stopped
