@@ -7,5 +7,5 @@ User = get_user_model()
 
 @receiver(post_save, sender=User)
 def create_user_preferences(sender, instance, created, **kwargs):
-    if created:
+    if created and not instance.is_superuser:
         UserPreferences.objects.create(user=instance)
