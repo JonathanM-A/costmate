@@ -39,7 +39,7 @@ services:
     entrypoint: /bin/sh
     command: -c "while true; do sleep 12h; certbot renew; done"
   
-  volumes:
-    media_volume:
-    certbot-etc:
-    certbot-var:
+volumes:
+  media_volume:
+  certbot-etc:
+  certbot-var:
