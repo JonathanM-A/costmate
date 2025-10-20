@@ -46,7 +46,7 @@ prod-logs:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml logs -f
 
 prod-exec:
-	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec $(ARGS)
 
 # Database operations
 db-shell:
