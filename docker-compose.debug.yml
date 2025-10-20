@@ -1,6 +1,6 @@
 services:
-  costmate:
-    image: costmate
+  costnav:
+    image: costnav
     build:
       context: .
       dockerfile: ./Dockerfile

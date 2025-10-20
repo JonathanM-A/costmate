@@ -25,9 +25,9 @@ from apps.users.views import GoogleCallbackView
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="My API",
+        title="CostNav",
         default_version="v1",
-        description="CostMate API",
+        description="CostNav API",
         terms_of_service="https://www.example.com/terms/",
         contact=openapi.Contact(email="kamajthomas@gmail.com"),
         license=openapi.License(name="MIT License"),
