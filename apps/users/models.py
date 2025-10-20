@@ -140,7 +140,7 @@ class UserPreferences(BaseModel):
         default=Decimal("15.00")  # default labor rate of £15.00, can be changed later
     )
     notification_preferences = models.JSONField(
-        default={"stock_alerts": True, "order_reminder": True, "weekly_reports": True},
+        default=dict(stock_alerts=True, order_reminder=True, weekly_reports=True),
         blank=True,
         null=True,
     )  # Store notification preferences as a JSON object
@@ -158,4 +158,3 @@ class UserPreferences(BaseModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
