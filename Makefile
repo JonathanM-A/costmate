@@ -44,11 +44,11 @@ prod-logs:
 
 # Database operations
 db-shell:
-	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec db psql -U ${DB_USER} -d ${DB_NAME}
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec db psql -U ${DB_USER} -d ${DB_NAME}
 
 # Utility commands
 migrate:
-	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py migrate
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec costmetrix python manage.py migrate
 
 collectstatic:
-	docker compose -f docker-compose.base.yml -f docker-compose.override.yml exec costmetrix python manage.py collectstatic --noinput
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec costmetrix python manage.py collectstatic --noinput
