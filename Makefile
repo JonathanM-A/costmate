@@ -45,6 +45,9 @@ prod-down:
 prod-logs:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml logs -f
 
+prod-exec:
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec
+
 # Database operations
 db-shell:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec db psql -U ${DB_USER} -d ${DB_NAME}
