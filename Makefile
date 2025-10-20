@@ -1,4 +1,4 @@
-.PHONY: help build up down logs clean prod-up prod-down prod-logs
+.PHONY: help build up down logs clean prod-up prod-down prod-logs prod-exec
 
 # Default help target
 help:
