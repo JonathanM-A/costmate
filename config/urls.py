@@ -15,19 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.auth.decorators import login_required
 from django.urls import path, include
 from rest_framework import permissions
 import debug_toolbar
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from apps.users.views import GoogleCallbackView
-    
+
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="CostNav",
+        title="CostNav API",
         default_version="v1",
-        description="CostNav API",
+        description="API Documentation for CostNav",
         terms_of_service="https://www.example.com/terms/",
         contact=openapi.Contact(email="kamajthomas@gmail.com"),
         license=openapi.License(name="MIT License"),
@@ -42,14 +43,30 @@ urlpatterns = [
     path("__debug__/", include(debug_toolbar.urls)),
     path(
         "swagger/",
-        schema_view.with_ui("swagger", cache_timeout=0),
+        login_required(
+            schema_view.with_ui("swagger", cache_timeout=0), login_url="/admin/login"
+        ),
         name="schema-swagger-ui",
     ),
     path(
-        "swagger<format>/", schema_view.without_ui(cache_timeout=0), name="schema-json"
+        "swagger<format>/",
+        login_required(
+            schema_view.without_ui(cache_timeout=0), login_url="/admin/login"
+        ),
+        name="schema-json",
     ),
-    path("accounts/google/login/callback/", GoogleCallbackView.as_view(), name="google_callback"),
+    path(
+        "accounts/google/login/callback/",
+        GoogleCallbackView.as_view(),
+        name="google_callback",
+    ),
     path("auth/", include("config.auth_urls")),
     path("api/<str:version>/", include(("config.api_urls", "api"), namespace="api")),
-    path("", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
+    path(
+        "",
+        login_required(
+            schema_view.with_ui("redoc", cache_timeout=0), login_url="/admin/login"
+        ),
+        name="schema-redoc",
+    ),
 ]
