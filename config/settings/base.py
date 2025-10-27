@@ -401,3 +401,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=8, minute=0, day_of_week=1),
     },
 }
+
+# Swagger Settings
+SWAGGER_SETTINGS = {
+    "USE_SESSION_AUTH": True,  # enable login/logout buttons
+    "LOGIN_URL": "/admin/login/",
+    "LOGOUT_URL": "/admin/logout/",
+    "SECURITY_DEFINITIONS": {"basic": {"type": "basic"}},
+}
