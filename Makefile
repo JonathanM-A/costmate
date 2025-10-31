@@ -54,7 +54,7 @@ db-shell:
 
 # Utility commands
 migrate:
-	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec costnav python manage.py migrate
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec costnav python manage.py migrate --noinput
 
 collectstatic:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml exec costnav python manage.py collectstatic --noinput
