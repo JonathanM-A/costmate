@@ -434,7 +434,7 @@ CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS", default=[], cast=lambda v: v.split(",")
 )
 CORS_ALLOW_CREDENTIALS = True
-CORS_URLS_REGEX = r"^/api/.*$"
+CORS_URLS_REGEX = r"^/api/.*$|^/auth/.*$"
 CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
 CORS_ALLOWED_ORIGIN_REGEXES = [
     # r"^https://\w+\.example\.com$",
