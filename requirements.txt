@@ -20,6 +20,7 @@ contourpy==1.2.1
 cycler==0.12.1
 debugpy==1.8.1
 decorator==5.1.1
+dj-database-url==3.0.1
 Django==5.1.1
 django-cors-headers==4.9.0
 django-countries==7.6.1
@@ -27,7 +28,7 @@ django-debug-toolbar==4.4.6
 django-environ==0.12.0
 django-filter==24.3
 djangorestframework==3.15.2
-djangorestframework-filters
+djangorestframework-filters==0.11.1
 djangorestframework-simplejwt==5.3.1
 executing==2.0.1
 Flask==3.0.3
@@ -61,7 +62,7 @@ platformdirs==4.2.1
 pluggy==1.5.0
 prompt-toolkit==3.0.43
 psutil==5.9.8
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.11
 ptyprocess==0.7.0
 pure-eval==0.2.2
 py-moneyed==3.0
