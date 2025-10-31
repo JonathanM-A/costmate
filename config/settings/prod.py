@@ -71,6 +71,7 @@ THIRD_PARTY_APPS = [
     "debug_toolbar",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
+    "corsheaders",
 ]
 
 LOCAL_APPS = [
@@ -91,6 +92,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
