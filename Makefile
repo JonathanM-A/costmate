@@ -39,6 +39,9 @@ prod-build-nocache:
 prod-up:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml up -d
 
+prod-recreate:
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml up -d --force-recreate
+
 prod-down:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml down
 

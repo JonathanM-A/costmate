@@ -33,7 +33,8 @@ jobs:
             git reset --hard origin/main
             
             echo '🚀 Building and deploying...'
-            make prod-up
+            make prod-build
+            make prod-recreate
             
             echo '🗃 Running migrations...'
             make migrate
