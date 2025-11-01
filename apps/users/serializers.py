@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from allauth.account.adapter import get_adapter
 from allauth.account.utils import setup_user_email
+from allauth.account.models import EmailAddress
 from .models import User, UserPreferences
 import logging
 
@@ -26,13 +27,28 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "password"
         )
-        
+
 
 class CustomRegisterSerializer(RegisterSerializer):
     username = None  # Disable username field
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
     personal_contact = serializers.CharField(required=True)
+
+    def validate_email(self, email):
+        """
+        Checks if the email already exists in the EmailAddress model.
+        This prevents creating a new user if an unverified email already exists,
+        avoiding a database IntegrityError (500).
+        """
+        email = get_adapter().clean_email(email)
+
+        # Check for existence of the email, regardless of verified status
+        if EmailAddress.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError(
+                ("A user is already registered with this e-mail address.")
+            )
+        return email
 
     def get_cleaned_data(self):
         data = super().get_cleaned_data()
