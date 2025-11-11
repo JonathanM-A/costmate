@@ -39,6 +39,7 @@ class Recipe(BaseModel):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
+        null=True
     )
     labour_time = models.DurationField(
         null=True,
@@ -86,6 +87,7 @@ class Recipe(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Calculated cost price",
+        null=True
     )
     selling_price = models.DecimalField(
         max_digits=10,
@@ -93,6 +95,7 @@ class Recipe(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Calculated selling price",
+        null=True
     )
     is_draft = models.BooleanField(
         default=True, help_text="Indicates if the recipe is a draft"
@@ -133,12 +136,20 @@ class Recipe(BaseModel):
             self.labour_cost = (
                 Decimal(self.labour_time.total_seconds() / 3600) * self.labour_rate
             )
-        self.cost_price = (
-            self.inventory_items_cost
-            + self.labour_cost
-            + self.packaging_cost
-            + self.overhead_cost
-        )
+        if self.inventory_items_cost:
+            self.cost_price = (
+                self.inventory_items_cost
+                + self.labour_cost
+                + self.packaging_cost
+                + self.overhead_cost
+            )
+            self.selling_price = self.cost_price * (
+                1 + (self.profit_margin / Decimal(100))
+            )
+        else:
+            self.cost_price = 0
+            self.selling_price = 0
+
         self.selling_price = self.cost_price * (1 + (self.profit_margin / Decimal(100)))
         self.save()
 
@@ -162,6 +173,7 @@ class RecipeInventory(models.Model):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
+        null=True
     )
 
     class Meta:
