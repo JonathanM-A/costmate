@@ -1,4 +1,5 @@
 from django.db.models import Q
+from rest_framework.validators import UniqueValidator
 from rest_framework import serializers
 from djmoney.money import Money
 from .models import Recipe, RecipeInventory, RecipeCategory
@@ -15,6 +16,16 @@ class RecipeCategorySerializer(serializers.ModelSerializer):
         model = RecipeCategory
         fields = ["id", "name", "description", "created_by"]
         read_only_fields = ["id", "created_by", "created_at", "updated_at", "is_active"]
+        extra_kwargs = {
+            "name": {
+                "validators": [
+                    UniqueValidator(
+                        queryset=Recipe.objects.all(),
+                        message="A recipe with this name already exists.",
+                    )
+                ]
+            },
+        }
 
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
@@ -95,7 +106,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 created_by=user.id
             )
         return fields
-    
+
     def get_shareable_link(self, obj):
         request = self.context.get("request")
         if request and obj.share_enabled:
@@ -121,17 +132,21 @@ class RecipeSerializer(serializers.ModelSerializer):
             "selling_price",
             "shareable_link",
         ]
-        read_only_fields = [
-            "id",
-            "cost_price",
-            "selling_price"
-        ]
-        extra_kwargs={
+        read_only_fields = ["id", "cost_price", "selling_price"]
+        extra_kwargs = {
             "labour_time": {"write_only": True},
             "labour_rate": {"write_only": True},
             "packaging_cost": {"write_only": True},
             "overhead_cost": {"write_only": True},
             "instructions": {"write_only": True},
+            "name": {
+                "validators": [
+                    UniqueValidator(
+                        queryset=Recipe.objects.all(),
+                        message="A recipe with this name already exists.",
+                    )
+                ]
+            },
         }
 
     def create(self, validated_data):
