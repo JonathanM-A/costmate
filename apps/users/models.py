@@ -37,8 +37,6 @@ class UserManager(BaseUserManager):
         user.full_clean()
         user.save()
 
-        UserPreferences.objects.create(user=user)
-
         return user
     
 

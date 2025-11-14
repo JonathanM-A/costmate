@@ -20,6 +20,9 @@ class RecipeCategory(BaseModel):
         verbose_name_plural = "Recipe Categories"
         unique_together = ["name", "created_by"]
         ordering = ["name"]
+    
+    def __str__(self):
+        return self.name
 
 
 class Recipe(BaseModel):
