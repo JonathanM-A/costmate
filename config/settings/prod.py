@@ -72,6 +72,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "corsheaders",
+    "djmoney"
 ]
 
 LOCAL_APPS = [
@@ -84,6 +85,7 @@ LOCAL_APPS = [
     "apps.notifications.apps.NotificationsConfig",
     "apps.dashboard.apps.DashboardConfig",
     "apps.analytics.apps.AnalyticsConfig",
+    "apps.subscriptions.apps.SubscriptionsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -298,7 +300,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/day",
         "user": "1000/hour",
-    }
+    },
 }
 
 
@@ -361,11 +363,11 @@ CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours # type: 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"), # type: ignore
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"),  # type: ignore
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
-        }
+        },
     }
 }
 
@@ -389,6 +391,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=8, minute=0, day_of_week=1),
     },
 }
+
+# Paystack Settings
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")  # type: ignore
+PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY", default="")  # type: ignore
+PAYSTACK_BASE_URL = "https://api.paystack.co"
+TIER_PLAN_MAPPING = {
+    "enterprise": f"{env("ENTERPRISE_PLAN")}",
+    "pro": f"{env("PRO_PLAN")}",
+}
+DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="starter")  # type: ignore
 
 
 # SECURITY
@@ -423,7 +435,8 @@ CSP_INCLUDE_NONCE_IN = ("script-src", "style-src")
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 CSRF_TRUSTED_ORIGINS = config(
-    "CSRF_TRUSTED_ORIGINS", default=[], cast=lambda v: v.split(","))
+    "CSRF_TRUSTED_ORIGINS", default=[], cast=lambda v: v.split(",")
+)
 
 # FILE UPLOAD RESTRICTION---------------------SECURITY
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5.5 MB

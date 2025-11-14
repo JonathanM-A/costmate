@@ -68,7 +68,7 @@ THIRD_PARTY_APPS = [
     "debug_toolbar",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
-    "djmoney"
+    "djmoney",
 ]
 
 LOCAL_APPS = [
@@ -81,6 +81,7 @@ LOCAL_APPS = [
     "apps.notifications.apps.NotificationsConfig",
     "apps.dashboard.apps.DashboardConfig",
     "apps.analytics.apps.AnalyticsConfig",
+    "apps.subscriptions.apps.SubscriptionsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -96,7 +97,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
-    "apps.notifications.middleware.NotificationHeaderMiddleware"
+    "apps.notifications.middleware.NotificationHeaderMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -364,8 +365,8 @@ if DEBUG:
     mimetypes.add_type("application/javascript", ".js", True)
 
 # Admin credentials for initial setup
-ADMIN_EMAIL = env('ADMIN_EMAIL')
-ADMIN_PASSWORD = env('ADMIN_PASSWORD')
+ADMIN_EMAIL = env("ADMIN_EMAIL")
+ADMIN_PASSWORD = env("ADMIN_PASSWORD")
 
 # Redis Cache Configuration
 # https://django-redis.readthedocs.io/en/stable/
@@ -373,11 +374,11 @@ CACHE_TIMEOUT = env.int("CACHE_TIMEOUT", default=3600 * 24)  # 24 hours # type: 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"), # type: ignore
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/1"),  # type: ignore
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
-        }
+        },
     }
 }
 
@@ -409,3 +410,13 @@ SWAGGER_SETTINGS = {
     "LOGOUT_URL": "/admin/logout/",
     "SECURITY_DEFINITIONS": {"basic": {"type": "basic"}},
 }
+
+# Paystack Settings
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")  # type: ignore
+PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY", default="")  # type: ignore
+PAYSTACK_BASE_URL = "https://api.paystack.co"
+TIER_PLAN_MAPPING = {
+    "enterprise": f"{env("ENTERPRISE_PLAN")}",
+    "pro": f"{env("PRO_PLAN")}",
+}
+DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="starter")  # type: ignore
