@@ -173,4 +173,3 @@ costmate creds.txt
 celerybeat*
 docker-compose.override.yml
 /beat
-apps/subscriptions
