@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Count, Q, Sum, Avg
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -20,7 +21,7 @@ class RecipeViewset(ModelViewSet):
     serializer_class = RecipeSerializer
     http_method_names = ["get", "post", "patch", "delete"]
     search_fields = ["name"]
-    filter_fields = ["category"]
+    filterset_fields = ["category__name"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
@@ -44,6 +45,22 @@ class RecipeViewset(ModelViewSet):
             return RecipeDetailSerializer
         return super().get_serializer_class()
     
+    def list(self, request, *args, **kwargs):
+        result = super().list(request, *args, **kwargs)
+        recipe_stats = self.get_queryset().aggregate(
+            total_recipes=Count("id"),
+            total_drafts=Count("id", filter=Q(is_draft=True)),
+            total_active=Count("id", filter=Q(is_draft=False)),
+            total_cost=Sum("cost_price"),
+            avg_profit_margin=Avg("profit_margin"),
+        )
+        result.data = {
+            "recipes": result.data,
+            "stats": {**recipe_stats},
+        }
+        return Response(result.data, status=status.HTTP_200_OK)
+    
+
     @action(detail=True, methods=["post"])
     def enable_sharing(self, request, pk=None):
         recipe = self.get_object()

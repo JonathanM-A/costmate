@@ -95,6 +95,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         source="category",
         required=False,
     )
+    category = serializers.StringRelatedField(read_only=True)
     shareable_link = serializers.SerializerMethodField()
 
     def get_fields(self):
