@@ -78,6 +78,7 @@ class Inventory(BaseModel):
         decimal_places=2,
         default=Decimal(0.00),
     )
+    days_of_stock_on_hand = models.IntegerField(default=0)
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory"

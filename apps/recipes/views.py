@@ -1,3 +1,4 @@
+from djmoney.money import Money
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q, Sum, Avg
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -13,6 +14,7 @@ from .serializers import (
     RecipeCategorySerializer,
     RecipeCategory,
 )
+from ..users.utils import get_user_preferrence_from_cache
 
 
 class RecipeViewset(ModelViewSet):
@@ -54,6 +56,13 @@ class RecipeViewset(ModelViewSet):
             total_cost=Sum("cost_price"),
             avg_profit_margin=Avg("profit_margin"),
         )
+
+        currency = get_user_preferrence_from_cache(
+            request.user.id, "currency", default="USD"
+        )
+        recipe_stats["total_cost"] = str(Money(
+            recipe_stats["total_cost"] or 0, currency
+        ))
         result.data = {
             "recipes": result.data,
             "stats": {**recipe_stats},

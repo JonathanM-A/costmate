@@ -1,4 +1,5 @@
 from datetime import datetime
+from djmoney.money import Money
 from django.db.models import (
     Q,
     F,
@@ -62,12 +63,38 @@ class SupplierViewset(ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Supplier.objects.none()
-        
+
         base_queryset = (
-            Supplier.objects.all() if user.is_superuser
+            Supplier.objects.all()
+            if user.is_superuser
             else Supplier.objects.filter(is_active=True, created_by=user)
         )
-        return base_queryset.select_related("created_by").order_by("name")
+        return (
+            base_queryset.select_related("created_by")
+            .prefetch_related("history")
+            .order_by("name")
+        )
+
+    def list(self, request, *args, **kwargs):
+        result = super().list(request, *args, **kwargs)
+
+        currency = get_user_preferrence_from_cache(request.user, "currency", "USD")
+
+        supplier_stats = self.get_queryset().aggregate(
+            total_suppliers=Count("id"),
+            total_spent=Sum("history__cost_price"),
+        )
+
+        supplier_stats["total_spent"] = str(
+            Money(supplier_stats["total_spent"], currency)
+        )
+
+        result.data = {
+            "suppliers": result.data,
+            "stats": supplier_stats,
+        }
+
+        return Response(result.data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -186,7 +213,6 @@ class InventoryView(ModelViewSet):
                 },
                 status=status.HTTP_200_OK,
             )
-
 
     def partial_update(self, request, *args, **kwargs):
         allowed_fields = {"reorder_level"}
@@ -314,11 +340,11 @@ class InventoryHistoryView(ListAPIView):
     queryset = InventoryHistory.objects.none()
     serializer_class = InventoryHistorySerializer
     permission_classes = [IsAuthenticated]
-    filter_fields = [
+    filterset_fields = [
         "created_at",
         "incident_date",
-        "inventory_item",
-        "supplier",
+        "inventory_item__name",
+        "supplier__name",
         "is_addition",
     ]
     search_fields = ["inventory_item__name", "supplier__name"]
