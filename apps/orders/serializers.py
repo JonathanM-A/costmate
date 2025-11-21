@@ -60,6 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "total_value",
             "profit",
             "profit_percentage",
+            ""
         ]
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
