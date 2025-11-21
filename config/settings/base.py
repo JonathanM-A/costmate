@@ -420,3 +420,6 @@ TIER_PLAN_MAPPING = {
     "pro": f"{env("PRO_PLAN")}",
 }
 DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="starter")  # type: ignore
+
+# Stripe Settings
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")  # type: ignore

@@ -151,6 +151,7 @@ class InventorySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_active",
+            "days_of_stock_on_hand",
         ]
 
     def validate(self, attrs):

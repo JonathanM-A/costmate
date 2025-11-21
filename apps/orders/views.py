@@ -1,10 +1,13 @@
-from django.db import transaction
-from django.db.models import Prefetch
+from datetime import date
+from djmoney.money import Money
+from django.db.models import Prefetch, Count, Sum, Q
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 from .serializers import OrderSerializer, Order, OrderRecipe
+from ..users.utils import get_user_preferrence_from_cache
 
 
 class OrderViewSet(ModelViewSet):
@@ -13,9 +16,9 @@ class OrderViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
-    filterset_fields = ["status", "delivery_date", "created_at"]
+    filterset_fields = ["status", "delivery_date", "created_at", "customer__id"]
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore
         user = self.request.user
         if not user.is_authenticated:
             return Order.objects.none()
@@ -23,7 +26,7 @@ class OrderViewSet(ModelViewSet):
         base_queryset = (
             Order.objects.all()
             if user.is_superuser
-            else Order.objects.filter(created_by=user)
+            else Order.objects.filter(created_by=user, is_active=True)
         )
 
         return (
@@ -42,6 +45,41 @@ class OrderViewSet(ModelViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
+
+    def list(self, request, *args, **kwargs):
+        result = super().list(request, *args, **kwargs)
+
+        order_stats = self.get_queryset().aggregate(
+            total_orders=Count("id"),
+            total_pending=Count("id", filter=Q(status="pending")),
+            due_today=Count(
+                "id",
+                filter=Q(
+                    status="pending",
+                    delivery_date=date.today(),
+                ),
+            ),
+            total_amount=Sum("total_value"),
+            total_profit=Sum("profit"),
+        )
+
+        currency = get_user_preferrence_from_cache(
+            request.user.id, "currency", "USD"
+        )
+
+        order_stats["total_amount"] = str(
+                Money(order_stats["total_amount"] or 0, currency)
+            )
+
+        order_stats["total_profit"] = str(
+                Money(order_stats["total_profit"] or 0, currency)
+            )
+
+        result.data = {
+            "orders": result.data,
+            "stats": {**order_stats},
+        }
+        return Response(result.data, status=status.HTTP_200_OK)
 
     @action(methods=["patch"], detail=True, url_path="update-status")
     def update_status(self, request, pk=None, **kwargs):
@@ -77,12 +115,6 @@ class OrderViewSet(ModelViewSet):
                     {"detail": "Cannot revert a cancelled order to pending."},
                     status=400,
                 )
-
-        if new_status == "completed":
-            with transaction.atomic():
-                order_recipes = order.order_recipes.all()
-                for order_recipe in order_recipes:
-                    order_recipe.update_inventory(user)
 
         order.status = new_status
         order.save()
