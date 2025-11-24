@@ -392,15 +392,16 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# Paystack Settings
-PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")  # type: ignore
-PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY", default="")  # type: ignore
-PAYSTACK_BASE_URL = "https://api.paystack.co"
+# Stripe Settings
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")  # type: ignore
 TIER_PLAN_MAPPING = {
-    "enterprise": f"{env("ENTERPRISE_PLAN")}",
-    "pro": f"{env("PRO_PLAN")}",
+    "E": f"{env("ENTERPRISE_PLAN")}",
+    "P": f"{env("PRO_PLAN")}",
 }
-DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="starter")  # type: ignore
+DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="S")  # type: ignore
+TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=14)  # type: ignore
+DOMAIN_NAME = env("DOMAIN_NAME", default="http://localhost:8000")  # type: ignore
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")  # type: ignore
 
 
 # SECURITY
