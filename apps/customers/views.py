@@ -9,6 +9,9 @@ from .serializers import (
     CustomerSerializer,
 )
 from ..users.utils import get_user_preferrence_from_cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CustomerViewset(ModelViewSet):
@@ -57,31 +60,38 @@ class CustomerViewset(ModelViewSet):
 
 
     def retrieve(self, request, *args, **kwargs):
-        result = super().retrieve(request, *args, **kwargs)
+        try:
+            result = super().retrieve(request, *args, **kwargs)
 
-        customer = self.get_object()
-        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
+            customer = self.get_object()
+            currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
-        total_orders = customer.orders.filter(is_active=True).count()
-        total_spent = str(
-            Money(
-                customer.orders.filter(is_active=True).aggregate(
-                    total=Sum("total_value")
-                )["total"]
-                or 0,
-                currency,
+            total_orders = customer.orders.filter(is_active=True).count()
+            total_spent = str(
+                Money(
+                    customer.orders.filter(is_active=True).aggregate(
+                        total=Sum("total_value")
+                    )["total"]
+                    or 0,
+                    currency,
+                )
             )
-        )
-        avg_order_value = str(Money(total_spent / total_orders if total_orders > 0 else 0, currency))
+            avg_order_value = str(Money(total_spent / total_orders if total_orders > 0 else 0, currency))
 
-        stats = {
-            "total_orders": total_orders,
-            "total_spent": total_spent,
-            "avg_order_value": avg_order_value,
-        }
-        result.data["stats"] = stats
+            stats = {
+                "total_orders": total_orders,
+                "total_spent": total_spent,
+                "avg_order_value": avg_order_value,
+            }
+            result.data["stats"] = stats
 
-        return Response(result.data, status=status.HTTP_200_OK)
+            return Response(result.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error retrieving customer: {str(e)}")
+            return Response(
+                {"error": "An error occurred while retrieving the customer."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def destroy(self, request, *args, **kwargs):
         """Soft delete the customer by setting is_active to False."""
