@@ -149,19 +149,20 @@ class InventoryView(ModelViewSet):
         if base_queryset:
             # Add aggregated data to the response
             aggregated_data = base_queryset.aggregate(
-                total_count_below_reorder=Count(
+                low_stock_level=Count(
                     Case(
                         When(quantity__lte=F("reorder_level"), then=1),
                         output_field=IntegerField(),
                     )
                 ),
-                total_count_above_reorder=Count(
+                good_stock_level=Count(
                     Case(
                         When(quantity__gt=F("reorder_level"), then=1),
                         output_field=IntegerField(),
                     )
                 ),
                 total_value=Sum("total_value"),
+                total_inventory=Count("id")
             )
 
             queryset = self.filter_queryset(self.get_queryset())
