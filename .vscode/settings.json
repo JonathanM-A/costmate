@@ -19,15 +19,6 @@
             "username": "postgres"
         },
         {
-            "previewLimit": 50,
-            "server": "localhost",
-            "port": 5432,
-            "driver": "PostgreSQL",
-            "name": "costmate",
-            "username": "postgres",
-            "database": "costmate"
-        },
-        {
             "pgOptions": {
                 "ssl": {
                     "rejectUnauthorized": true
@@ -39,6 +30,16 @@
             "driver": "PostgreSQL",
             "connectString": "postgresql://costmate_db_qw0w_user:zwSpcS4dSvSvT9mxyzdQDGxMigzxg8JI@dpg-d35nuvqli9vc738ihlgg-a.oregon-postgres.render.com/costmate_db_qw0w",
             "name": "costmate_db"
+        },
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "costmate",
+            "username": "postgres",
+            "database": "costmate"
         }
     ],
     "postman.settings.dotenv-detection-notification-visibility": false

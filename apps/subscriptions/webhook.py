@@ -1,98 +1,153 @@
-import json
-import hmac
-import hashlib
-from datetime import datetime
+import stripe
+from datetime import datetime, timezone
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.utils import timezone
 from rest_framework import status
 from .models import Subscription
+import logging
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+def update_user_subscription(
+    stripe_customer_id,
+    subscription_id,
+    tier,
+    is_active,
+    current_sub_start=None,
+    current_sub_end=None,
+):
+    """Update or create a Subscription record for the user."""
+    try:
+        user = User.objects.get(stripe_customer_id=stripe_customer_id)
+    except User.DoesNotExist:
+        return
+
+    Subscription.objects.update_or_create(
+        user=user,
+        defaults={
+            "tier": tier,
+            "subscription_code": subscription_id,
+            "current_sub_start": current_sub_start,
+            "current_sub_end": current_sub_end,
+            "is_active": is_active,
+        },
+    )
 
 
 @csrf_exempt
 @require_POST
-def paystack_webhook(request):
-    # Verify the webhook signature
-    paystack_signature = request.headers.get("X-Paystack-Signature")
-    payload = request.body.decode("utf-8")
-
-    computed_hash = hmac.new(
-        key=settings.PAYSTACK_SECRET_KEY.encode("utf-8"),
-        msg=payload.encode("utf-8"),
-        digestmod=hashlib.sha512,
-    ).hexdigest()
-
-    if not hmac.compare_digest(computed_hash, paystack_signature):
-        return HttpResponse(
-            status=status.HTTP_400_BAD_REQUEST, content="Invalid signature"
-        )
+def stripe_webhook(request, version):
+    """Handle Stripe webhooks for subscription events."""
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+    endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
     try:
-        event = json.loads(payload)
-        event_type = event.get("event")
-        data = event.get("data", {})
-        customer_code = data.get("customer", {}).get("customer_code")
-        email = data.get("customer", {}).get("email")
+        logger.debug("Verifying Stripe webhook signature.")
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+    except ValueError as e:
+        logger.error(f"Invalid payload: {e}")
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+    except stripe.SignatureVerificationError as e:
+        logger.error(f"Invalid signature: {e}")
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
 
-        if not customer_code:
-            return HttpResponse(
-                status=status.HTTP_400_BAD_REQUEST, content="Missing customer code"
-            )
-
-        subscription_instance = Subscription.objects.select_related("user").get(
-            customer_code=customer_code
+    # Handle the event
+    if event["type"] == "customer.subscription.created":
+        session = event["data"]["object"]
+        logger.debug(
+            f"Processing customer.subscription.created for session ID: {session.get('id')}"
         )
-        if not subscription_instance:
-            user = User.objects.get(email=email)
-            subscription_instance = Subscription.objects.create(
-                user=user,
-                customer_code=customer_code,
-            )
 
-        plan_code = data.get("plan", {}).get("plan_code")
+        subscription_id = session.get("id")
+        customer_id = session.get("customer")
 
-        tier_mapping = settings.TIER_PLAN_MAPPING
-        new_tier = tier_mapping.get(plan_code, "starter")
+        data = session.get("items", {}).get("data", [])[0]
+        plan_id = data.get("plan").get("id")
 
-        # Handle different event types
-
-        # 1. Subscription Creation or Charge Success
-        if event_type == "subscription.create" or event_type == "charge.success":
-            subscription_code = data.get("subscription_code")
-
-            if data.get("next_payment_date"):
-                next_payment_date = datetime.strptime(
-                    data["next_payment_date"], "%Y-%m-%d"
-                ).date()
-                subscription_instance.end_date = timezone.make_aware(
-                    datetime.combine(next_payment_date, datetime.min.time())
-                )
-
-            subscription_instance.tier = new_tier
-            subscription_instance.is_active = True
-            subscription_instance.start_date = data.get("createdAt", timezone.now())
-            subscription_instance.subscription_code = subscription_code
-            subscription_instance.save()
-
-        # 2. Subscription Cancellation
-        elif event_type == "subscription.disable":
-            subscription_instance.is_active = False
-            subscription_instance.end_date = timezone.now()
-            subscription_instance.tier = settings.DEFAULT_SUBSCRIPTION_PLAN
-            subscription_instance.save()
-
-        return HttpResponse(status=status.HTTP_200_OK)
-
-    except json.JSONDecodeError:
-        return HttpResponse(
-            status=status.HTTP_400_BAD_REQUEST, content="Invalid payload"
+        current_sub_start = datetime.fromtimestamp(
+            data.get("current_period_start"), tz=timezone.utc
         )
-    except Exception as e:
-        return HttpResponse(
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR, content=str(e)
+        end_date = datetime.fromtimestamp(
+            data.get("current_period_end"), tz=timezone.utc
         )
+
+        product_tier = None
+        for k, v in settings.TIER_PLAN_MAPPING.items():
+            if v == plan_id:
+                product_tier = k
+                break
+
+        subscription = stripe.Subscription.retrieve(subscription_id)
+
+        start_date = datetime.fromtimestamp(subscription.start_date, tz=timezone.utc)
+
+        update_user_subscription(
+            stripe_customer_id=customer_id,
+            subscription_id=subscription_id,
+            tier=product_tier,
+            current_sub_start=current_sub_start,
+            current_sub_end=end_date,
+            is_active=True,
+        )
+        logger.info(
+            f"Subscription created for user with stripe ID {customer_id} with subscription ID {subscription_id}"
+        )
+
+    # elif event["type"] == "invoice.payment_succeeded":
+    #     session = event["data"]["object"]
+    #     logger.debug(
+    #         f"Processing invoice.payment_suceeded for session ID: {session.get('id')}"
+    #     )
+
+    elif event["type"] == "customer.subscription.deleted":
+        session = event["data"]["object"]
+        logger.debug(
+            f"Processing customer.subscription.deleted for session ID: {session.get('id')}"
+        )
+
+        subscription_id = session.get("id")
+        customer_id = session.get("customer")
+
+        data = session.get("items", {}).get("data", [])[0]
+        plan_id = data.get("plan").get("id")
+
+        current_sub_start = datetime.fromtimestamp(
+            data.get("current_period_start"), tz=timezone.utc
+        )
+        end_date = datetime.fromtimestamp(
+            data.get("current_period_end"), tz=timezone.utc
+        )
+
+        product_tier = None
+        for k, v in settings.TIER_PLAN_MAPPING.items():
+            if v == plan_id:
+                product_tier = k
+                break
+
+        subscription = stripe.Subscription.retrieve(subscription_id)
+
+        start_date = datetime.fromtimestamp(subscription.start_date, tz=timezone.utc)
+
+        update_user_subscription(
+            stripe_customer_id=customer_id,
+            subscription_id=subscription_id,
+            tier=product_tier,
+            current_sub_start=current_sub_start,
+            current_sub_end=end_date,
+            is_active=True,
+        )
+
+        try:
+            
+            logger.info(f"Subscription {subscription_id} marked as inactive.")
+        except Subscription.DoesNotExist:
+            logger.warning(f"Subscription record with ID {subscription_id} not found.")
+
+    return HttpResponse(status=status.HTTP_200_OK)
