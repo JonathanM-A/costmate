@@ -201,8 +201,8 @@ class InventoryView(ModelViewSet):
             return Response(
                 {
                     "results": [],
-                    "total_count_below_reorder": 0,
-                    "total_count_above_reorder": 0,
+                    "low_stock_level": 0,
+                    "good_stock_level": 0,
                     "total_value": str(
                         Money(
                             0,
@@ -211,6 +211,7 @@ class InventoryView(ModelViewSet):
                             ),
                         )
                     ),
+                    "total_inventory": 0,
                 },
                 status=status.HTTP_200_OK,
             )
