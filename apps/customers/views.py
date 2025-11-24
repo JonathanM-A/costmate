@@ -42,7 +42,7 @@ class CustomerViewset(ModelViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
-    
+
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
 
@@ -58,7 +58,6 @@ class CustomerViewset(ModelViewSet):
         }
         return Response(result.data, status=status.HTTP_200_OK)
 
-
     def retrieve(self, request, *args, **kwargs):
         try:
             result = super().retrieve(request, *args, **kwargs)
@@ -67,16 +66,18 @@ class CustomerViewset(ModelViewSet):
             currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
             total_orders = customer.orders.filter(is_active=True).count()
-            total_spent = str(
-                Money(
-                    customer.orders.filter(is_active=True).aggregate(
+            total_spent = customer.orders.filter(is_active=True).aggregate(
                         total=Sum("total_value")
                     )["total"]
-                    or 0,
+            
+            avg_order_value = str(Money(total_spent / total_orders if total_orders > 0 else 0, currency))
+            
+            total_spent = str(
+                Money(
+                    total_spent if total_spent is not None else 0,
                     currency,
                 )
             )
-            avg_order_value = str(Money(total_spent / total_orders if total_orders > 0 else 0, currency))
 
             stats = {
                 "total_orders": total_orders,
