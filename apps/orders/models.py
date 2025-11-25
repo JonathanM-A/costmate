@@ -53,8 +53,8 @@ class Order(BaseModel):
         """
         for order_recipe in self.order_recipes.all():
             order_recipe.save()
-        self.total_value = sum(recipe.selling_price for recipe in self.recipes.all())
-        total_cost_price = sum(recipe.cost_price for recipe in self.recipes.all())
+        self.total_value = sum(order_recipe.line_value for order_recipe in self.order_recipes.all())
+        total_cost_price = sum(order_recipe.line_cost_price for order_recipe in self.order_recipes.all())
         self.profit = self.total_value - total_cost_price
         self.profit_percentage = (
             (self.profit / total_cost_price * 100)
@@ -86,6 +86,12 @@ class OrderRecipe(models.Model):
         Recipe, on_delete=models.CASCADE, related_name="order_recipes"
     )
     quantity = models.PositiveIntegerField(default=1)
+    line_cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     line_value = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -101,6 +107,7 @@ class OrderRecipe(models.Model):
         Calculate the total price for this order recipe based on the quantity and price per unit.
         """
         self.line_value = self.recipe.selling_price * self.quantity
+        self.line_cost_price = self.recipe.cost_price * self.quantity
 
     def save(self, *args, **kwargs):
         """
