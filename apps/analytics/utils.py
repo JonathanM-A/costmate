@@ -170,7 +170,7 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
             {
                 "item_name": item.name,
                 "turnover_ratio": round(turnover_ratio, 2),
-                "cogs": str(Money(cogs, currency)),
+                "cost": str(Money(cogs, currency)),
             }
         )
 

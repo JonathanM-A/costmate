@@ -1,6 +1,6 @@
 from datetime import date
 from djmoney.money import Money
-from django.db.models import Prefetch, Count, Sum, Q
+from django.db.models import Prefetch, Count, Sum, Q, Case, When, F
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -16,7 +16,7 @@ class OrderViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
-    filterset_fields = ["status", "delivery_date", "created_at", "customer__id"]
+    filterset_fields = ["status", "delivery_date", "created_at", "customer__id", "order_recipes__recipe__category__name"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
@@ -50,7 +50,7 @@ class OrderViewSet(ModelViewSet):
         result = super().list(request, *args, **kwargs)
 
         order_stats = self.get_queryset().aggregate(
-            total_orders=Count("id"),
+            total_orders=Count("id", filter=Q(status="completed")),
             total_pending=Count("id", filter=Q(status="pending")),
             due_today=Count(
                 "id",
@@ -59,21 +59,19 @@ class OrderViewSet(ModelViewSet):
                     delivery_date=date.today(),
                 ),
             ),
-            total_amount=Sum("total_value"),
-            total_profit=Sum("profit"),
+            total_amount=Sum("total_value", filter=Q(status="completed")),
+            total_profit=Sum("profit", filter=Q(status="completed")),
         )
 
-        currency = get_user_preferrence_from_cache(
-            request.user.id, "currency", "USD"
-        )
+        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
         order_stats["total_amount"] = str(
-                Money(order_stats["total_amount"] or 0, currency)
-            )
+            Money(order_stats["total_amount"] or 0, currency)
+        )
 
         order_stats["total_profit"] = str(
-                Money(order_stats["total_profit"] or 0, currency)
-            )
+            Money(order_stats["total_profit"] or 0, currency)
+        )
 
         result.data = {
             "orders": result.data,
