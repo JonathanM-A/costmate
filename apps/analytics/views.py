@@ -116,8 +116,6 @@ class AnalyticsView(APIView):
                 or 0
             )
 
-            print(total_order_revenue)
-
             revenue_by_recipe_category = (
                 completed_orders.annotate(
                     category_name=F("order_recipes__recipe__category__name")
