@@ -86,7 +86,7 @@ class SupplierViewset(ModelViewSet):
         )
 
         supplier_stats["total_spent"] = str(
-            Money(supplier_stats["total_spent"], currency)
+            Money(supplier_stats["total_spent"], currency) if supplier_stats["total_spent"] else Money(0, currency)
         )
 
         result.data = {
