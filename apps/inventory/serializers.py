@@ -33,15 +33,17 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 
 
 class SupplierSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = Supplier
-        exclude = ["created_by", "updated_at", "created_at", "is_active"]
+        exclude = ["updated_at", "created_at", "is_active"]
         read_only_fields = ["created_at", "updated_at", "is_active", "created_by"]
 
         validators = [
             UniqueTogetherValidator(
-                queryset=Supplier.objects.all(),
-                fields=["created_by", "contact", "name"],
+                queryset=Supplier.objects.filter(is_active=True),
+                fields=["contact", "name", "created_by"],
                 message="Supplier with this contact already exists.",
             )
         ]
@@ -52,7 +54,6 @@ class SupplierSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def create(self, validated_data):
-        validated_data["created_by"] = self.context["request"].user
         name = validated_data.get("name")
         contact = validated_data.get("contact")
         if Supplier.objects.filter(created_by=validated_data["created_by"], contact=contact, is_active=False).exists():
