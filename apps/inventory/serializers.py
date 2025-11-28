@@ -1,5 +1,6 @@
 from django.db.models import Q
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 from djmoney.money import Money
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory
 from .services import InventoryUpdateService
@@ -36,6 +37,14 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         exclude = ["created_by", "updated_at", "created_at", "is_active"]
         read_only_fields = ["created_at", "updated_at", "is_active", "created_by"]
+
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Supplier.objects.all(),
+                fields=["created_by", "contact", "name"],
+                message="Supplier with this contact already exists.",
+            )
+        ]
 
     def validate_name(self, value):
         if not value.strip():
