@@ -265,6 +265,15 @@ class InventoryView(ModelViewSet):
         inventory = self.get_object()
         quantity = int(request.data.get("quantity", 0))
         incident_date = request.data.get("incident_date", datetime.today())
+        
+        if isinstance(incident_date, str):
+            try:
+                incident_date = datetime.strptime(incident_date, "%Y-%m-%d").date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid incident_date format. Required format is YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if quantity <= 0:
             return Response(
@@ -272,7 +281,7 @@ class InventoryView(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if incident_date > datetime.today():
+        if incident_date > datetime.today().date():
             return Response(
                 {"error": "Incident date cannot be in the future."},
                 status=status.HTTP_400_BAD_REQUEST,
