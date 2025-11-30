@@ -11,25 +11,16 @@ logger = logging.Logger(__name__)
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = InventoryItem
-        exclude = ["created_by", "updated_at", "created_at", "is_active", "is_default"]
-        read_only_fields = [
-            "created_at",
-            "updated_at",
-            "is_default",
-            "created_by",
-            "is_active",
-        ]
+        exclude = ["updated_at", "created_at", "is_active", "is_default"]
 
     def validate_name(self, value):
         if not value.strip():
             raise serializers.ValidationError("Name cannot be empty.")
         return value.strip()
-
-    def create(self, validated_data):
-        validated_data["created_by"] = self.context["request"].user
-        return super().create(validated_data)
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -56,7 +47,7 @@ class SupplierSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         name = validated_data.get("name")
         contact = validated_data.get("contact")
-        if Supplier.objects.filter(created_by=validated_data["created_by"], contact=contact, is_active=False).exists():
+        if Supplier.objects.filter(created_by=validated_data["created_by"], contact=contact, name=name, is_active=False).exists():
             supplier = Supplier.objects.get(
                 created_by=validated_data["created_by"], contact=contact, is_active=False
             )
@@ -66,6 +57,7 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class InventoryHistorySerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     inventory_item = InventoryItemSerializer(read_only=True)
     inventory_item_id = serializers.PrimaryKeyRelatedField(
         queryset=InventoryItem.objects.all(), source="inventory_item", write_only=True
@@ -80,12 +72,9 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InventoryHistory
-        exclude = ["created_by", "updated_at", "created_at", "is_active"]
+        exclude = ["updated_at", "created_at", "is_active"]
         read_only_fields = [
             "id",
-            "created_at",
-            "updated_at",
-            "created_by",
         ]
 
     def get_fields(self):
@@ -119,10 +108,6 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
                 )
         return validated_data
 
-    def create(self, validated_data):
-        validated_data["created_by"] = self.context["request"].user
-        return super().create(validated_data)
-
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         currency = get_user_preferrence_from_cache(
@@ -138,6 +123,7 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
 
 
 class InventorySerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     inventory_item = InventoryItemSerializer(read_only=True)
     below_reorder = serializers.BooleanField(read_only=True)
     entries = serializers.ListField(
@@ -149,7 +135,7 @@ class InventorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Inventory
-        exclude = ["created_by", "updated_at", "created_at", "is_active"]
+        exclude = ["updated_at", "created_at", "is_active"]
         read_only_fields = [
             "id",
             "inventory_item",
@@ -157,10 +143,6 @@ class InventorySerializer(serializers.ModelSerializer):
             "total_value",
             "cost_per_unit",
             "reorder_level",
-            "created_by",
-            "created_at",
-            "updated_at",
-            "is_active",
             "days_of_stock_on_hand",
         ]
 
