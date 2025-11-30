@@ -1,5 +1,7 @@
 from django.db import transaction
-from django.db.models import OuterRef, Subquery, F, Sum
+from django.db.models import OuterRef, Subquery, F, Sum, Value
+from django.db.models.functions import Coalesce
+from decimal import Decimal
 from .models import Recipe, RecipeInventory
 from ..inventory.models import Inventory
 from ..users.utils import get_user_preferrence_from_cache
@@ -28,9 +30,7 @@ class RecipeService:
 
             RecipeInventory.objects.filter()
 
-            item_ids = set(
-            
-            )
+            item_ids = set()
 
             item_ids = {ri.inventory_item for ri in recipe_inventories}
 
@@ -54,11 +54,15 @@ class RecipeService:
             instance.save(update_fields=update_fields)
 
             if ingredients is not None:
-                recipe_inventories = cls._bulk_replace_ingredients(instance, ingredients)
+                recipe_inventories = cls._bulk_replace_ingredients(
+                    instance, ingredients
+                )
 
                 item_ids = {ri.inventory_item.id for ri in recipe_inventories}
 
-                cls._bulk_update_recipe_inventory_costs(item_ids, user=instance.created_by)
+                cls._bulk_update_recipe_inventory_costs(
+                    item_ids, user=instance.created_by
+                )
 
                 instance.refresh_from_db()
                 instance.calculate_cost()
@@ -73,6 +77,7 @@ class RecipeService:
                     recipe=recipe,
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
+                    cost=Decimal("0.00"),
                 )
                 for ing in ingredients
             ]
@@ -90,6 +95,7 @@ class RecipeService:
                     recipe=recipe,
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
+                    cost=Decimal("0.00"),
                 )
                 for ing in ingredients
             ]
@@ -107,21 +113,18 @@ class RecipeService:
             inventory_item_id__in=item_ids, recipe__created_by=user
         )
 
-        ris.annotate(cost_per_unit=Subquery(inventories.values("cost_per_unit"))).update(
-            cost=F("quantity") * F("cost_per_unit")
-        )
+        # Use Coalesce to default cost_per_unit to 0 when the Subquery returns NULL
+        cost_subquery = Subquery(inventories.values("cost_per_unit")[:1])
+        ris.update(cost=F("quantity") * Coalesce(cost_subquery, Value(Decimal("0.00"))))
 
         affected_recipe_ids = list(ris.values_list("recipe_id", flat=True).distinct())
 
         if affected_recipe_ids:
-            Recipe.objects.filter(
-                id__in=affected_recipe_ids
-            ).update(
+            Recipe.objects.filter(id__in=affected_recipe_ids).update(
                 inventory_items_cost=Subquery(
-                    RecipeInventory.objects.filter(
-                        recipe_id=OuterRef("id")
-                    ).values("recipe_id").annotate(
-                        sum_cost=Sum("cost")
-                    ).values("sum_cost")[:1]
+                    RecipeInventory.objects.filter(recipe_id=OuterRef("id"))
+                    .values("recipe_id")
+                    .annotate(sum_cost=Sum("cost"))
+                    .values("sum_cost")[:1]
                 ),
             )
