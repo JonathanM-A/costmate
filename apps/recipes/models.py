@@ -42,7 +42,6 @@ class Recipe(BaseModel):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
-        null=True
     )
     labour_time = models.DurationField(
         null=True,
@@ -98,7 +97,6 @@ class Recipe(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Calculated selling price",
-        null=True
     )
     is_draft = models.BooleanField(
         default=True, help_text="Indicates if the recipe is a draft"
@@ -153,7 +151,6 @@ class Recipe(BaseModel):
             self.cost_price = 0
             self.selling_price = 0
 
-        self.selling_price = self.cost_price * (1 + (self.profit_margin / Decimal(100)))
         self.save()
 
     def __str__(self):
@@ -176,7 +173,6 @@ class RecipeInventory(models.Model):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
-        null=True
     )
 
     class Meta:
