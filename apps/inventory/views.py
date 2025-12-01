@@ -10,6 +10,7 @@ from django.db.models import (
     Sum,
     Count,
     IntegerField,
+    Prefetch,
 )
 from django.db import transaction
 from rest_framework.response import Response
@@ -103,6 +104,63 @@ class SupplierViewset(ModelViewSet):
             {"message": "Supplier deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    @action(methods=["get"], detail=False, url_path="price-tracking")
+    def inventory_price_tracking(self, request, *args, **kwargs):
+        """Retrieve inventory history and compare cost price changes between two most recent entries of the last 5 inventory added."""
+
+        user = request.user
+        inventory_items = InventoryItem.objects.filter(
+            created_by=user
+        ).prefetch_related(
+            Prefetch(
+                "history",
+                queryset=InventoryHistory.objects.filter(
+                    is_addition=True, created_by=user
+                ).order_by("-incident_date", "-created_at"),
+            )
+        )[
+            :5
+        ]
+
+        print(inventory_items.count())
+        result = []
+        for item in inventory_items:
+            history = item.history.all()[:2]  # Get the two most recent history entries
+            if len(history) >= 2:
+                latest = history[0]
+                previous = history[1]
+                price_change = latest.cost_per_unit - previous.cost_per_unit
+                price_change_percentage = (
+                    (price_change / previous.cost_per_unit) * 100
+                    if previous.cost_per_unit != 0
+                    else 0
+                )
+                result.append(
+                    {
+                        "ingredient": item.name,
+                        "current_price": str(
+                            Money(
+                                latest.cost_per_unit,
+                                get_user_preferrence_from_cache(
+                                    user, "currency", "USD"
+                                ),
+                            )
+                        ),
+                        "previous_price": str(
+                            Money(
+                                previous.cost_per_unit,
+                                get_user_preferrence_from_cache(
+                                    user, "currency", "USD"
+                                ),
+                            )
+                        ),
+                        "price_change_percentage": f"{round(price_change_percentage, 2)}%",
+                        "last_updated": latest.incident_date,
+                        "supplier": latest.supplier.name if latest.supplier else "N/A",
+                    }
+                )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class InventoryView(ModelViewSet):
