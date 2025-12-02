@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from ..inventory.serializers import InventorySerializer
 from ..orders.models import Order, OrderRecipe
 from ..orders.serializers import OrderSerializer
 from ..inventory.models import Inventory
@@ -116,10 +117,20 @@ class DashboardView(APIView):
             many=True,
             context={"request": request},
         ).data
+        
+        inventory_below_reorder = Inventory.objects.filter(
+            quantity__lt=F("reorder_level"), created_by=request.user
+        ).annotate(
+            deficit_percentage=((F("reorder_level") - F("quantity")) * 100) / F("reorder_level")
+        ).order_by(
+            "-deficit_percentage"
+        )
 
-        results["low_stock"] = Inventory.objects.filter(
-            quantity__lt=F("reorder_level")
-        ).count()
+        
+        
+        inventory_alert = inventory_below_reorder.values_list("inventory_item__name", flat=True)
+        results["inventory_alert"] = inventory_alert
+        results["low_stock"] = inventory_below_reorder.count()
         results["active_orders"] = pending_orders.count()
 
         return Response(
