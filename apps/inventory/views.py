@@ -111,7 +111,7 @@ class SupplierViewset(ModelViewSet):
 
         user = request.user
         inventory_items = InventoryItem.objects.filter(
-            created_by=user
+            Q(created_by=user) | Q(is_default=True), is_active=True
         ).prefetch_related(
             Prefetch(
                 "history",
@@ -119,15 +119,16 @@ class SupplierViewset(ModelViewSet):
                     is_addition=True, created_by=user
                 ).order_by("-incident_date", "-created_at"),
             )
-        )[
-            :5
-        ]
+        )
 
-        print(inventory_items.count())
         result = []
+        count = 0
         for item in inventory_items:
             history = item.history.all()[:2]  # Get the two most recent history entries
             if len(history) >= 2:
+                count += 1
+                if count > 5:
+                    break
                 latest = history[0]
                 previous = history[1]
                 price_change = latest.cost_per_unit - previous.cost_per_unit
@@ -195,7 +196,7 @@ class InventoryView(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instances = serializer.save()
         return Response(
-            InventorySerializer(
+            InventoryHistorySerializer(
                 instances, many=True, context={"request": request}
             ).data,
             status=status.HTTP_201_CREATED,
