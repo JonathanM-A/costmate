@@ -24,7 +24,7 @@ class InventoryUpdateService:
 
             transaction.on_commit(lambda: cls._cascade_cost_updates(histories, user))
 
-            return updated_items.select_related("inventory_item")
+            return histories
 
     @classmethod
     def _cascade_cost_updates(cls, histories, user):
