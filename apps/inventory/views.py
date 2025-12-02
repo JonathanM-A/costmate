@@ -160,7 +160,7 @@ class SupplierViewset(ModelViewSet):
                         "supplier": latest.supplier.name if latest.supplier else "N/A",
                     }
                 )
-        return Response(result, status=status.HTTP_200_OK)
+        return Response({"results":result}, status=status.HTTP_200_OK)
 
 
 class InventoryView(ModelViewSet):
