@@ -20,5 +20,9 @@ class Customer(BaseModel):
         ordering = ["first_name", "last_name"]
         unique_together = ["created_by", "contact"]
 
+    @property
+    def name(self):
+        return f"{self.first_name} {self.last_name}"
+    
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.contact})"

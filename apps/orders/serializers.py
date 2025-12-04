@@ -60,7 +60,6 @@ class OrderSerializer(serializers.ModelSerializer):
             "total_value",
             "profit",
             "profit_percentage",
-            ""
         ]
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
@@ -87,6 +86,7 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         representation["profit"] = str(Money(amount=instance.profit, currency=currency))
         representation["profit_percentage"] = str(instance.profit_percentage) + "%"
+        representation["customer"] = instance.customer.name
         return representation
 
     def create(self, validated_data):
