@@ -128,3 +128,22 @@ class RecipeService:
                     .values("sum_cost")[:1]
                 ),
             )
+
+            Recipe.objects.filter(id__in=affected_recipe_ids).update(
+                cost_price=(
+                    F("inventory_items_cost")
+                    + F("labour_cost")
+                    + F("packaging_cost")
+                    + F("overhead_cost")
+                ),
+                selling_price=(
+                    (
+                        F("inventory_items_cost")
+                        + F("labour_cost")
+                        + F("packaging_cost")
+                        + F("overhead_cost")
+                    )
+                    * (1 + (F("profit_margin") / Decimal("100.00")))
+                ),
+            )
+            
