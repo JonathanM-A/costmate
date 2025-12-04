@@ -57,7 +57,7 @@ class RecipeIventorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         currency = get_user_preferrence_from_cache(
-            self.context["request"].user, "currency", "USD"
+            self.context["request"].user.id, "currency", "USD"
         )
         representation["cost"] = str(Money(instance.cost, currency))
         representation["quantity"] = (
@@ -161,7 +161,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation["profit_margin"] = str(instance.profit_margin) + "%"
         currency = get_user_preferrence_from_cache(
-            self.context["request"].user, "currency", "USD"
+            self.context["request"].user.id, "currency", "USD"
         )
         money_fields = [
             "cost_price",
@@ -221,8 +221,9 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation["profit_margin"] = str(instance.profit_margin) + "%"
         currency = get_user_preferrence_from_cache(
-            self.context["request"].user, "currency", "USD"
+            self.context["request"].user.id, "currency", "USD"
         )
+        print("Currency: ", currency)
         money_fields = [
             "inventory_items_cost",
             "labour_cost",

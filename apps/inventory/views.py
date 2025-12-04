@@ -79,7 +79,7 @@ class SupplierViewset(ModelViewSet):
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
 
-        currency = get_user_preferrence_from_cache(request.user, "currency", "USD")
+        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
         supplier_stats = self.get_queryset().aggregate(
             total_suppliers=Count("id"),
@@ -144,7 +144,7 @@ class SupplierViewset(ModelViewSet):
                             Money(
                                 latest.cost_per_unit,
                                 get_user_preferrence_from_cache(
-                                    user, "currency", "USD"
+                                    user.id, "currency", "USD"
                                 ),
                             )
                         ),
@@ -152,7 +152,7 @@ class SupplierViewset(ModelViewSet):
                             Money(
                                 previous.cost_per_unit,
                                 get_user_preferrence_from_cache(
-                                    user, "currency", "USD"
+                                    user.id, "currency", "USD"
                                 ),
                             )
                         ),
@@ -204,6 +204,7 @@ class InventoryView(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         base_queryset = self.get_queryset()
+        user = self.request.user
 
         if base_queryset:
             # Add aggregated data to the response
@@ -236,7 +237,7 @@ class InventoryView(ModelViewSet):
                     Money(
                         aggregated_data["total_value"],
                         get_user_preferrence_from_cache(
-                            self.request.user, "currency", "USD"
+                            user.id, "currency", "USD"
                         ),
                     )
                 )
@@ -250,7 +251,7 @@ class InventoryView(ModelViewSet):
                     Money(
                         aggregated_data["total_value"] or 0,
                         get_user_preferrence_from_cache(
-                            self.request.user, "currency", "USD"
+                            user.id, "currency", "USD"
                         ),
                     )
                 ),
@@ -266,7 +267,7 @@ class InventoryView(ModelViewSet):
                         Money(
                             0,
                             get_user_preferrence_from_cache(
-                                self.request.user, "currency", "USD"
+                                user.id, "currency", "USD"
                             ),
                         )
                     ),

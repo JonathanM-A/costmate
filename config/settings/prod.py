@@ -366,9 +366,12 @@ CACHES = {
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CACHE_TIMEOUT": CACHE_TIMEOUT,  # 24 hours
+            "KEY_PREFIX": "costnav",
         },
+        "VERSION": "v1",
     }
 }
+
 
 # Celery Configuration
 # https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html
