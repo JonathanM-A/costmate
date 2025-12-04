@@ -1,6 +1,4 @@
 import stripe
-from uuid import uuid4
-from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
@@ -64,3 +62,57 @@ class CreateSubscriptionView(APIView):
         except Exception as e:
             logger.error(f"Unexpected error during subscription creation: {str(e)}")
             return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CancelSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, version):
+        """Cancel the user's active subscription."""
+        try:
+            user = request.user
+            subscription = user.subscriptions
+
+            if not subscription.is_active:
+                return Response({"detail": "No active subscription to cancel."}, status=status.HTTP_400_BAD_REQUEST)
+
+            stripe.Subscription.delete(subscription.subscription_code)
+
+            return Response({"detail": "Subscription cancelled successfully."}, status=status.HTTP_200_OK)
+
+        except stripe.StripeError as e:
+            logger.error(f"Stripe error during subscription cancellation: {e.user_message}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error during subscription cancellation: {str(e)}")
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ChangeSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, version):
+        """Upgrade the user's subscription tier."""
+        try:
+            user = request.user
+            new_tier_key = request.data.get('tier_key')
+            new_price_id = settings.TIER_PLAN_MAPPING.get(new_tier_key)
+
+            subscription = user.subscriptions
+
+            if not subscription.is_active:
+                return Response({"detail": "No active subscription to upgrade."}, status=status.HTTP_400_BAD_REQUEST)
+
+            stripe_sub = stripe.Subscription.retrieve(subscription.subscription_code)
+            item_id = stripe_sub['items']['data'][0].id
+
+            stripe.Subscription.modify(
+                subscription.subscription_code,
+                items=[{
+                    'id': item_id,
+                    'price': new_price_id,
+                }],
+                proration_behavior='always_invoice',
+            )
+
+            return Response({"detail": "Subscription upgraded successfully."}, status=status.HTTP_200_OK)
