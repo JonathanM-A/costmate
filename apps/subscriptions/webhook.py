@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework import status
 from .models import Subscription
+from .tasks import deactivate_expired_subscriptions
 import logging
 
 User = get_user_model()
@@ -14,30 +15,15 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def update_user_subscription(
-    stripe_customer_id,
-    subscription_id,
-    tier,
-    is_active,
-    current_sub_start=None,
-    current_sub_end=None,
-):
+def update_user_subscription(stripe_customer_id, **kwargs):
     """Update or create a Subscription record for the user."""
+
     try:
         user = User.objects.get(stripe_customer_id=stripe_customer_id)
     except User.DoesNotExist:
         return
 
-    Subscription.objects.update_or_create(
-        user=user,
-        defaults={
-            "tier": tier,
-            "subscription_code": subscription_id,
-            "current_sub_start": current_sub_start,
-            "current_sub_end": current_sub_end,
-            "is_active": is_active,
-        },
-    )
+    Subscription.objects.update_or_create(user=user, defaults=kwargs)
 
 
 @csrf_exempt
@@ -100,54 +86,51 @@ def stripe_webhook(request, version):
             f"Subscription created for user with stripe ID {customer_id} with subscription ID {subscription_id}"
         )
 
-    # elif event["type"] == "invoice.payment_succeeded":
-    #     session = event["data"]["object"]
-    #     logger.debug(
-    #         f"Processing invoice.payment_suceeded for session ID: {session.get('id')}"
-    #     )
-
-    elif event["type"] == "customer.subscription.deleted":
+    elif event["type"] == "invoice.payment_succeeded":
         session = event["data"]["object"]
+
         logger.debug(
-            f"Processing customer.subscription.deleted for session ID: {session.get('id')}"
+            f"Processing invoice.payment_suceeded for session ID: {session.get('id')}"
         )
 
-        subscription_id = session.get("id")
         customer_id = session.get("customer")
-
-        data = session.get("items", {}).get("data", [])[0]
-        plan_id = data.get("plan").get("id")
-
         current_sub_start = datetime.fromtimestamp(
-            data.get("current_period_start"), tz=timezone.utc
+            session.get("period_start"), tz=timezone.utc
         )
-        end_date = datetime.fromtimestamp(
-            data.get("current_period_end"), tz=timezone.utc
-        )
-
-        product_tier = None
-        for k, v in settings.TIER_PLAN_MAPPING.items():
-            if v == plan_id:
-                product_tier = k
-                break
-
-        subscription = stripe.Subscription.retrieve(subscription_id)
-
-        start_date = datetime.fromtimestamp(subscription.start_date, tz=timezone.utc)
+        end_date = datetime.fromtimestamp(session.get("period_end"), tz=timezone.utc)
 
         update_user_subscription(
             stripe_customer_id=customer_id,
-            subscription_id=subscription_id,
-            tier=product_tier,
             current_sub_start=current_sub_start,
             current_sub_end=end_date,
             is_active=True,
         )
 
+    elif event["type"] == "customer.subscription.updated":
+        session = event["data"]["object"]
+        logger.debug(
+            f"Processing customer.subscription.updated for session ID: {session.get('id')}"
+        )
+
         try:
-            
-            logger.info(f"Subscription {subscription_id} marked as inactive.")
-        except Subscription.DoesNotExist:
-            logger.warning(f"Subscription record with ID {subscription_id} not found.")
+            if session.get("cancel_at_period_end"):
+                logger.info(
+                    f"Subscription {session.get('id')} is set to cancel at period end."
+                )
+                cancel_at_time = datetime.fromtimestamp(
+                    session.get("cancel_at"), tz=timezone.utc
+                )
+                customer_id = session.get("customer")
+                subscription_id = session.get("id")
+
+                if customer_id and subscription_id:
+                    deactivate_expired_subscriptions.apply_async(
+                        eta=cancel_at_time,
+                        args=[customer_id],
+                    )  # type: ignore
+
+                    logger.info(f"Subscription {subscription_id} marked as inactive.")
+        except Exception as e:
+            logger.error(f"Error processing subscription update: {str(e)}")
 
     return HttpResponse(status=status.HTTP_200_OK)
