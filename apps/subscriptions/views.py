@@ -116,3 +116,10 @@ class ChangeSubscriptionView(APIView):
             )
 
             return Response({"detail": "Subscription upgraded successfully."}, status=status.HTTP_200_OK)
+        
+        except stripe.StripeError as e:
+            logger.error(f"Stripe error during subscription upgrade: {e.user_message}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error during subscription upgrade: {str(e)}")
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
