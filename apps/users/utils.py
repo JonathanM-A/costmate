@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.cache import cache
+from .models import UserPreferences
 
 def get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"]):
     """
@@ -30,7 +31,8 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
     cache_key = get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"])
     preferences = cache.get(cache_key)
     if preferences is None:
-        return default
+        preferences = UserPreferences.objects.get(user_id=user_id)
+        cache.set(cache_key, preferences)
     return preferences.get(preference_type, default)
 
     
