@@ -7,12 +7,13 @@ def get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_
     
     Args:
         user_id (uuid): The ID of the user.
-        action (str): The action type, default is "detail".
+        version (str): The version of the API.
     
     Returns:
         str: A cache key formatted as 'user_preferences_<user_id>_<version>'.
     """
-    return f'user_preferences_{user_id}_{version}'
+    user_id_str = str(user_id)
+    return f'user_preferences_{user_id_str}_{version}'
 
 
 def get_user_preferrence_from_cache(user_id, preference_type, default):
@@ -26,7 +27,7 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
     Returns:
         str: The preferred currency of the user, or None if not set.
     """
-    cache_key = get_preferences_cache_key(user_id)
+    cache_key = get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"])
     preferences = cache.get(cache_key)
     if preferences is None:
         return default

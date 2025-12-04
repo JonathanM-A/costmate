@@ -33,7 +33,7 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
             Money(
                 amount=instance.line_value,
                 currency=get_user_preferrence_from_cache(
-                    self.context["request"].user, "currency", "USD"
+                    self.context["request"].user.id, "currency", "USD"
                 ),
             )
         )
@@ -79,7 +79,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         currency = get_user_preferrence_from_cache(
-            self.context["request"].user, "currency", "USD"
+            self.context["request"].user.id, "currency", "USD"
         )
         representation["total_value"] = str(
             Money(amount=instance.total_value, currency=currency)

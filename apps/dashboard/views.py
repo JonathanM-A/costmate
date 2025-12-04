@@ -36,6 +36,7 @@ class DashboardView(APIView):
     permission_classes=[IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        user = self.request.user
         # Fetch fields filterable by date
         # Get start_date and end_date from kwargs (if provided)
         start_date_str = request.query_params.get("start_date")
@@ -69,10 +70,10 @@ class DashboardView(APIView):
                     "Invalid end_date format. Required format is YYYY-MM-DD."
                 )
 
-        currency = get_user_preferrence_from_cache(request.user, "currency", "USD")
+        currency = get_user_preferrence_from_cache(user.id, "currency", "USD")
 
         completed_orders = Order.objects.filter(
-            created_by=self.request.user, status="completed"
+            created_by=user, status="completed"
         ).prefetch_related("order_recipes")
 
         order_stats = completed_orders.aggregate(
