@@ -31,7 +31,7 @@ class AnalyticsView(APIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        currency = get_user_preferrence_from_cache(user.id, "currency", "USD")
 
         # Fetch fields filterable by date
         # Get start_date and end_date from kwargs (if provided)

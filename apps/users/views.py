@@ -183,7 +183,7 @@ class UserPreferencesView(RetrieveUpdateAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
-        cache_key = get_preferences_cache_key(request.user.id)
+        cache_key = get_preferences_cache_key(request.user.id, settings.REST_FRAMEWORK["DEFAULT_VERSION"])
         cache.delete(cache_key)  # Invalidate cache on update
 
         response = super().update(request, *args, **kwargs)
