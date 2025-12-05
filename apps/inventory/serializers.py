@@ -1,3 +1,4 @@
+from djmoney.money import Money
 from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
@@ -25,11 +26,12 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 
 class SupplierSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Supplier
         exclude = ["updated_at", "created_at", "is_active"]
-        read_only_fields = ["created_at", "updated_at", "is_active", "created_by"]
+        read_only_fields = ["id", "total_spent"]
 
         validators = [
             UniqueTogetherValidator(
@@ -39,6 +41,15 @@ class SupplierSerializer(serializers.ModelSerializer):
             )
         ]
 
+    def get_products(self, obj):
+        products_qs = (
+            obj.history.all()
+            .order_by("inventory_item__name", "-incident_date")
+            .distinct("inventory_item__name")
+        )
+        products = products_qs.values_list("inventory_item__name", flat=True)
+        return products
+
     def validate_name(self, value):
         if not value.strip():
             raise serializers.ValidationError("Name cannot be empty.")
@@ -47,13 +58,32 @@ class SupplierSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         name = validated_data.get("name")
         contact = validated_data.get("contact")
-        if Supplier.objects.filter(created_by=validated_data["created_by"], contact=contact, name=name, is_active=False).exists():
+        if Supplier.objects.filter(
+            created_by=validated_data["created_by"],
+            contact=contact,
+            name=name,
+            is_active=False,
+        ).exists():
             supplier = Supplier.objects.get(
-                created_by=validated_data["created_by"], contact=contact, is_active=False
+                created_by=validated_data["created_by"],
+                contact=contact,
+                is_active=False,
             )
             supplier.activate()
             return supplier
         return super().create(validated_data)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["total_spent"] = str(
+            Money(
+                instance.total_spent,
+                get_user_preferrence_from_cache(
+                    self.context["request"].user.id, "currency", "USD"
+                ),
+            )
+        )
+        return representation
 
 
 class InventoryHistorySerializer(serializers.ModelSerializer):
