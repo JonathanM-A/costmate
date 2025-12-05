@@ -31,8 +31,9 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
     cache_key = get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"])
     preferences = cache.get(cache_key)
     if preferences is None:
-        preferences = UserPreferences.objects.get(user_id=user_id)
-        cache.set(cache_key, preferences)
+        user_preferences = UserPreferences.objects.get(user_id=user_id)
+        cache.set(cache_key, user_preferences)
+        preferences = cache.get(cache_key)
     return preferences.get(preference_type, default)
 
     
