@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.cache import cache
 from .models import UserPreferences
+from .serializers import UserPreferencesSerializer
 
 def get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"]):
     """
@@ -30,10 +31,15 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
     """
     cache_key = get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"])
     preferences = cache.get(cache_key)
-    if preferences is None:
-        user_preferences = UserPreferences.objects.get(user_id=user_id)
-        cache.set(cache_key, user_preferences)
-        preferences = cache.get(cache_key)
+    if not preferences:
+        try:
+            user_preferences = UserPreferences.objects.get(user_id=user_id)
+            serializer = UserPreferencesSerializer(user_preferences)
+            preferences = serializer.data
+            cache.set(cache_key, preferences)
+            preferences = cache.get(cache_key)
+        except UserPreferences.DoesNotExist:
+            return default
     return preferences.get(preference_type, default)
 
     

@@ -223,7 +223,6 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         currency = get_user_preferrence_from_cache(
             self.context["request"].user.id, "currency", "USD"
         )
-        print("Currency: ", currency)
         money_fields = [
             "inventory_items_cost",
             "labour_cost",
