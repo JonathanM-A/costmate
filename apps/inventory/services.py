@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import transaction
 from django.db.models import Case, When, DecimalField, F, Subquery, OuterRef, Max
 from django.db.models.functions import Cast
@@ -71,6 +72,20 @@ class InventoryUpdateService:
     def _create_history_records(histories):
         """Bulf create history records"""
         return InventoryHistory.objects.bulk_create(histories)
+    
+    @staticmethod
+    def _update_supplier_total_spent(histories):
+        from .models import Supplier  # Importing here to avoid circular imports
+        """Update total spent for suppliers involved in the histories"""
+        supplier_totals = {}
+        for history in histories:
+            if history.supplier_id:
+                supplier_totals.setdefault(history.supplier_id, Decimal(0.00))
+                supplier_totals[history.supplier_id] += history.cost_price
+        for supplier_id, total in supplier_totals.items():
+            Supplier.objects.filter(id=supplier_id).update(
+                total_spent=F('total_spent') + total
+            )
 
     @staticmethod
     def _update_inventory(user, updates):

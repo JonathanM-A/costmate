@@ -29,6 +29,11 @@ class InventoryItem(BaseModel):
 class Supplier(BaseModel):
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    total_spent = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal(0.00)
+    )
     created_by = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, related_name="created_suppliers", blank=False
     )
