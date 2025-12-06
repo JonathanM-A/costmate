@@ -5,6 +5,9 @@ from django.db import models
 
 User = get_user_model()
 
+def get_default_subscription_tier():
+    return settings.DEFAULT_SUBSCRIPTION_PLAN
+
 
 class Subscription(models.Model):
 
@@ -19,7 +22,7 @@ class Subscription(models.Model):
         User, on_delete=models.CASCADE, related_name="subscriptions", primary_key=True
     )
     tier = models.CharField(
-        max_length=20, choices=TIER_CHOICES, default=settings.DEFAULT_SUBSCRIPTION_PLAN
+        max_length=20, choices=TIER_CHOICES, default=get_default_subscription_tier
     )
     current_sub_start = models.DateTimeField(auto_now_add=True)
     current_sub_end = models.DateTimeField(null=True, blank=True)
