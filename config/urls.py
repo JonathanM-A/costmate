@@ -21,7 +21,7 @@ from rest_framework import permissions
 import debug_toolbar
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from apps.users.views import GoogleCallbackView
+from apps.users.views import GoogleCallbackView, GoogleLoginRedirector
 
 
 schema_view = get_schema_view(
@@ -54,6 +54,11 @@ urlpatterns = [
             schema_view.without_ui(cache_timeout=0), login_url="/admin/login"
         ),
         name="schema-json",
+    ),
+    path(
+        "accounts/google/login",
+        GoogleLoginRedirector.as_view(),
+        name="google_login"
     ),
     path(
         "accounts/google/login/callback/",
