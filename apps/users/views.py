@@ -1,6 +1,8 @@
+from urllib.parse import urlencode
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.conf import settings
+from django.shortcuts import redirect
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -11,7 +13,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import RegisterView
-from dj_rest_auth.registration.views import SocialLoginView
 import google.oauth2.credentials
 import google.oauth2.id_token
 import google.auth.transport.requests
@@ -47,7 +48,6 @@ class UserView(RetrieveUpdateAPIView):
 
     def get_queryset(self):  # type: ignore
         return User.objects.filter(id=self.request.user.id)  # type: ignore
-    
 
 
 class CustomOAuth2Client(OAuth2Client):
@@ -59,26 +59,68 @@ class CustomOAuth2Client(OAuth2Client):
         super().__init__(*args, **kwargs)
 
 
-class GoogleLogin(SocialLoginView):
-    adapter_class = GoogleOAuth2Adapter
-    callback_url = env.str(
-        "GOOGLE_CALLBACK_URL",
-        default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
-    )
-    client_class = CustomOAuth2Client
+# class GoogleLogin(SocialLoginView):
+#     adapter_class = GoogleOAuth2Adapter
+#     callback_url = env.str(
+#         "GOOGLE_CALLBACK_URL",
+#         default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
+#     )
+#     client_class = CustomOAuth2Client
+
+
+class GoogleLoginRedirector(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        client_id = env("GOOGLE_CLIENT_ID")
+
+        redirect_uri = env(
+            "GOOGLE_CALLBACK_URL",
+            default="http://localhost:8000/accounts/google/login/callback/", #type:  ignore
+        )
+
+        params = {
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "client_id": client_id,
+            "scope": "openid email profile",
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+
+
+        google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+
+        full_auth_url = f"{google_auth_url}?{urlencode(params)}"
+
+
+        return redirect(full_auth_url)
+
 
 
 class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
     adapter_class = GoogleOAuth2Adapter
 
-    def get(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         try:
-            code = request.query_params.get("code")
+            code = request.data.get("code")
             if not code:
                 return Response(
                     {"error": "Code parameter is required"},
                     status=status.HTTP_400_BAD_REQUEST,
+                )
+            redirect_uri = request.data.get("redirect_uri")
+            if not redirect_uri:
+                return Response(
+                    {
+                        "error": "redirect_uri parameter is required"
+                    }, status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if redirect_uri != env("GOOGLE_CALLBACK_URL"):
+                return Response(
+                    {"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
             # Get Google OAuth2 tokens
