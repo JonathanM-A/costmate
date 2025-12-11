@@ -97,7 +97,6 @@ class GoogleLoginRedirector(APIView):
         return redirect(full_auth_url)
 
 
-
 class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
     adapter_class = GoogleOAuth2Adapter
@@ -200,13 +199,17 @@ class UserPreferencesView(RetrieveUpdateAPIView):
     serializer_class = UserPreferencesSerializer
 
     def get_object(self):  # type: ignore
-        return self.request.user.preferences if hasattr(self.request.user, 'preferences') else None
+        return (
+            self.request.user.preferences  # type:  ignore
+            if hasattr(self.request.user, "preferences")
+            else None
+        )  
 
-    def get_queryset(self):
+    def get_queryset(self): # type:  ignore
         user = self.request.user
         if not user.is_authenticated:
             return UserPreferences.objects.none()
-        
+
         if hasattr(user, 'preferences'):
             return UserPreferences.objects.filter(user=user)
 

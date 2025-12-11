@@ -94,3 +94,36 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
         model = UserPreferences
         fields = "__all__"
         read_only_fields = ("id", "created_at", "updated_at")
+
+
+FORMAT_MAPPING = {
+    "DD": "%d",
+    "MM": "%m",
+    "YYYY": "%Y",
+    "YY": "%y",
+}
+
+class UserFormattedDate(serializers.DateField):
+
+    def _translate_format(self, user_format):
+        """Custom DateField to format date according to user preferences"""
+        python_format = user_format
+        for key, value in FORMAT_MAPPING.items():
+            python_format = python_format.replace(key, value)
+        return python_format
+    
+    def to_representation(self, value):
+        from .utils import get_user_preferrence_from_cache
+        
+        user = self.context['request'].user
+        user_format = get_user_preferrence_from_cache(user.id, "date_format", "DD/MM/YYYY")
+        output_format = self._translate_format(user_format)
+        
+        if not value:
+            return None
+        try:
+            return value.strftime(output_format)
+        except Exception as e:
+            logger.error(f"Error formatting date: {e}")
+            return value.isoformat()
+        
