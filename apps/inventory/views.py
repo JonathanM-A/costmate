@@ -189,7 +189,7 @@ class InventoryView(ModelViewSet):
                 default=Value(False),
                 output_field=BooleanField(),
             )
-        ).select_related("inventory_item")
+        ).select_related("inventory_item").order_by("inventory_item__name")
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

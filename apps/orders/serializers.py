@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from djmoney.money import Money
 from ..users.utils import get_user_preferrence_from_cache
+from ..users.serializers import UserFormattedDate
 from .models import Order, Customer, Recipe, OrderRecipe
 
 
@@ -29,14 +30,15 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["line_value"] = str(
-            Money(
-                amount=instance.line_value,
-                currency=get_user_preferrence_from_cache(
-                    self.context["request"].user.id, "currency", "USD"
-                ),
-            )
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
         )
+        money_fields = ["line_cost_price", "line_value"]
+        for field in money_fields:
+            if field in representation:
+                amount = representation[field]
+                representation[field] = str(Money(amount, currency))
+
         return representation
 
 
@@ -46,6 +48,7 @@ class OrderSerializer(serializers.ModelSerializer):
     )
     order_recipes = OrderRecipeSerializer(many=True, read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    delivery_date = UserFormattedDate(allow_null=True, required=False)
 
     class Meta:
         model = Order
@@ -64,7 +67,6 @@ class OrderSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
         }
-
 
     def get_fields(self):
         fields = super().get_fields()
