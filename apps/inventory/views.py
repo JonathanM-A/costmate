@@ -1,5 +1,7 @@
 from datetime import datetime
 from djmoney.money import Money
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.db.models import (
     Q,
     F,
@@ -34,6 +36,9 @@ from ..users.utils import get_user_preferrence_from_cache
 
 
 class InventoryItemView(ListCreateAPIView):
+    """
+    - **GET /inventory-items**: List/filter inventory items
+    """
     queryset = InventoryItem.objects.none()
     serializer_class = InventoryItemSerializer
     permission_classes = [IsAuthenticated]
@@ -211,13 +216,13 @@ class InventoryView(ModelViewSet):
             aggregated_data = base_queryset.aggregate(
                 low_stock_level=Count(
                     Case(
-                        When(quantity__lte=F("reorder_level"), then=1),
+                        When(quantity__lt=F("reorder_level"), then=1),
                         output_field=IntegerField(),
                     )
                 ),
                 good_stock_level=Count(
                     Case(
-                        When(quantity__gt=F("reorder_level"), then=1),
+                        When(quantity__gte=F("reorder_level"), then=1),
                         output_field=IntegerField(),
                     )
                 ),
