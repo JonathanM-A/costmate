@@ -18,7 +18,7 @@ class RecipeService:
             get_user_preferrence_from_cache(user.id, "profit_margin", 30.00),
         )
         validated_data.setdefault(
-            "profit_margin", get_user_preferrence_from_cache(user.id, "labour_rate", 20.00)
+            "labour_rate", get_user_preferrence_from_cache(user.id, "labour_rate", 20.00)
         )
 
         with transaction.atomic():
