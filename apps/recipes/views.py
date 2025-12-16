@@ -63,6 +63,10 @@ class RecipeViewset(ModelViewSet):
         recipe_stats["total_cost"] = str(Money(
             recipe_stats["total_cost"] or 0, currency
         ))
+        
+        if not recipe_stats["avg_profit_margin"]:
+            recipe_stats["avg_profit_margin"] = 0
+
         result.data = {
             "recipes": result.data,
             "stats": {**recipe_stats},
