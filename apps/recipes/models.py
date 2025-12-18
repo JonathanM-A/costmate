@@ -174,6 +174,13 @@ class RecipeInventory(models.Model):
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
+    suggested_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
+        help_text="Suggested cost if not available from inventory",
+    )
 
     class Meta:
         verbose_name_plural = "Recipe Inventory"
