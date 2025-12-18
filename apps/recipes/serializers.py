@@ -7,6 +7,7 @@ from .services import RecipeService
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
 from ..users.utils import get_user_preferrence_from_cache
 import logging
+from decimal import Decimal
 
 logger = logging.Logger(__name__)
 
@@ -71,6 +72,14 @@ class IngredientSerializer(serializers.Serializer):
         queryset=InventoryItem.objects.all(), write_only=True
     )
     quantity = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=0)
+    suggested_cost = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        default=Decimal("0.00"),
+    )
+    
 
     def get_fields(self):
         fields = super().get_fields()

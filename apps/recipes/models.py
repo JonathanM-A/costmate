@@ -137,16 +137,20 @@ class Recipe(BaseModel):
             self.labour_cost = (
                 Decimal(self.labour_time.total_seconds() / 3600) * self.labour_rate
             )
+            print("LABOUR COST:", self.labour_cost)
         if self.inventory_items_cost:
+            print("INVENTORY ITEMS COST:", self.inventory_items_cost)
             self.cost_price = (
                 self.inventory_items_cost
                 + self.labour_cost
                 + self.packaging_cost
                 + self.overhead_cost
             )
+            print("COST PRICE:", self.cost_price)
             self.selling_price = self.cost_price * (
                 1 + (self.profit_margin / Decimal(100))
             )
+            print("SELLING PRICE:", self.selling_price)
         else:
             self.cost_price = 0
             self.selling_price = 0
@@ -173,6 +177,13 @@ class RecipeInventory(models.Model):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
+    )
+    suggested_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(0)],
+        help_text="Suggested cost if not available from inventory",
     )
 
     class Meta:
