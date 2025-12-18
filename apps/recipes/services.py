@@ -91,7 +91,6 @@ class RecipeService:
                 for ing in ingredients
             ]
         )
-        print(recipe_inventories)
         return recipe_inventories
 
     @staticmethod
@@ -131,7 +130,7 @@ class RecipeService:
         updated = ris.filter(Q(cost=Decimal("0.00")) & Q(suggested_cost__gt=Decimal("0.00"))).update(
             cost=F("suggested_cost")*F("quantity")
         )
-        print("rows updated:", updated)
+        
 
         affected_recipe_ids = list(ris.values_list("recipe_id", flat=True).distinct())
 
