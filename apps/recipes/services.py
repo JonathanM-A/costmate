@@ -1,5 +1,12 @@
 from django.db import transaction
-from django.db.models import OuterRef, Subquery, F, Sum, Value
+from django.db.models import (
+    OuterRef,
+    Subquery,
+    F,
+    Sum,
+    Value,
+    Q,
+)
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 from .models import Recipe, RecipeInventory
@@ -18,7 +25,8 @@ class RecipeService:
             get_user_preferrence_from_cache(user.id, "profit_margin", 30.00),
         )
         validated_data.setdefault(
-            "labour_rate", get_user_preferrence_from_cache(user.id, "labour_rate", 20.00)
+            "labour_rate",
+            get_user_preferrence_from_cache(user.id, "labour_rate", 20.00),
         )
 
         with transaction.atomic():
@@ -78,10 +86,12 @@ class RecipeService:
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
                     cost=Decimal("0.00"),
+                    suggested_cost=ing.get("suggested_cost", Decimal("0.00")),
                 )
                 for ing in ingredients
             ]
         )
+        print(recipe_inventories)
         return recipe_inventories
 
     @staticmethod
@@ -96,6 +106,7 @@ class RecipeService:
                     inventory_item_id=ing["inventory_item_id"],
                     quantity=ing["quantity"],
                     cost=Decimal("0.00"),
+                    suggested_cost=ing.get("suggested_cost", Decimal("0.00")),
                 )
                 for ing in ingredients
             ]
@@ -116,6 +127,11 @@ class RecipeService:
         # Use Coalesce to default cost_per_unit to 0 when the Subquery returns NULL
         cost_subquery = Subquery(inventories.values("cost_per_unit")[:1])
         ris.update(cost=F("quantity") * Coalesce(cost_subquery, Value(Decimal("0.00"))))
+
+        updated = ris.filter(Q(cost=Decimal("0.00")) & Q(suggested_cost__gt=Decimal("0.00"))).update(
+            cost=F("suggested_cost")*F("quantity")
+        )
+        print("rows updated:", updated)
 
         affected_recipe_ids = list(ris.values_list("recipe_id", flat=True).distinct())
 
@@ -146,4 +162,3 @@ class RecipeService:
                     * (1 + (F("profit_margin") / Decimal("100.00")))
                 ),
             )
-            
