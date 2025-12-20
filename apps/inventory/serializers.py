@@ -23,6 +23,19 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name cannot be empty.")
         return value.strip()
 
+    def to_representation(self, instance):
+        user = self.context["request"].user
+        currency = get_user_preferrence_from_cache(
+            user.id, "currency", "USD")
+        data = super().to_representation(instance)
+        cost_per_unit = instance.inventory.filter(
+            created_by=user, is_active=True).first()
+        if cost_per_unit:
+            data["cost_per_unit"] = str(
+                Money(cost_per_unit.cost_per_unit, currency))
+        else:
+            data["cost_per_unit"] = str(Money(0, currency))
+        return data
 
 class SupplierSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())

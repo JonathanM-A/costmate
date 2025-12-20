@@ -1,5 +1,7 @@
 from datetime import datetime
 from djmoney.money import Money
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum, Count, Aggregate, TextField
@@ -34,6 +36,34 @@ class DashboardView(APIView):
     """
 
     permission_classes=[IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Get dashboard data",
+        operation_description="Get dashboard data with optional date range filtering.",
+        manual_parameters=[
+            openapi.Parameter(
+                "start_date",
+                openapi.IN_QUERY,
+                description="Start date in YYYY-MM-DD format",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "end_date",
+                openapi.IN_QUERY,
+                description="End date in YYYY-MM-DD format",
+                type=openapi.TYPE_STRING,
+            ),
+        ],
+        responses={
+            200: openapi.Response(description="Dashboard data"),
+            400: openapi.Response(
+                description="Invalid start_date format. Required format is YYYY-MM-DD."
+            ),
+            400: openapi.Response(
+                description="Invalid end_date format. Required format is YYYY-MM-DD."
+            ),
+        },
+    )
 
     def get(self, request, *args, **kwargs):
         user = self.request.user
@@ -118,7 +148,7 @@ class DashboardView(APIView):
             many=True,
             context={"request": request},
         ).data
-        
+
         inventory_below_reorder = Inventory.objects.filter(
             quantity__lt=F("reorder_level"), created_by=request.user
         ).annotate(
@@ -127,8 +157,6 @@ class DashboardView(APIView):
             "-deficit_percentage"
         )
 
-        
-        
         inventory_alert = inventory_below_reorder.values_list("inventory_item__name", flat=True)
         results["inventory_alert"] = inventory_alert
         results["low_stock"] = inventory_below_reorder.count()
