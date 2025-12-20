@@ -1,4 +1,6 @@
 import stripe
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
@@ -18,6 +20,21 @@ class CreateSubscriptionView(APIView):
     def get(self, request, version):
         return Response({"detail": "Ready to create subscription."}, status=status.HTTP_200_OK)
     
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type="object",
+            properties={
+                "tier_key": openapi.Schema(type="string"),
+            },
+            required=["tier_key"],
+        ),
+        operation_summary="Create a subscription",
+        operation_description="This endpoint creates a new subscription for the authenticated user.",
+        responses={200: openapi.Response("Checkout URL", openapi.Schema(type="string")),
+                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+    )
     def post(self, request, version):
         """Create a new subscription for the authenticated user."""
 
@@ -67,6 +84,15 @@ class CreateSubscriptionView(APIView):
 class CancelSubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Cancel a subscription",
+        operation_description="This endpoint cancels the authenticated user's active subscription.",
+        responses={200: openapi.Response("Subscription cancelled successfully", openapi.Schema(type="string")),
+                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+    )
+
     def post(self, request, version):
         """Cancel the user's active subscription."""
         try:
@@ -90,6 +116,22 @@ class CancelSubscriptionView(APIView):
 
 class ChangeSubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Change a subscription",
+        operation_description="This endpoint changes the authenticated user's active subscription.",
+        responses={200: openapi.Response("Subscription changed successfully", openapi.Schema(type="string")),
+                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))},
+        request_body=openapi.Schema(
+            type="object",
+            properties={
+                "tier_key": openapi.Schema(type="string"),
+            },
+            required=["tier_key"],
+        )
+    )
 
     def post(self, request, version):
         """Upgrade the user's subscription tier."""

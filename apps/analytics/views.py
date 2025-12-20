@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.utils import timezone
 from django.db.models import (
     Count,
@@ -29,6 +31,34 @@ logger = logging.getLogger(__name__)
 class AnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Get analytics data",
+        operation_description="Get analytics data for a given date range",
+        responses={
+            200: openapi.Response(description="Analytics data"),
+            400: openapi.Response(
+                description="Invalid start_date format. Required format is YYYY-MM-DD"
+            ),
+            400: openapi.Response(
+                description="Invalid end_date format. Required format is YYYY-MM-DD"
+            ),
+        },
+        manual_parameters=[
+            openapi.Parameter(
+                "start_date",
+                openapi.IN_QUERY,
+                description="Start date in YYYY-MM-DD format",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "end_date",
+                openapi.IN_QUERY,
+                description="End date in YYYY-MM-DD format",
+                type=openapi.TYPE_STRING,
+            ),
+        ],
+    )
+
     def get(self, request, *args, **kwargs):
         user = request.user
         currency = get_user_preferrence_from_cache(user.id, "currency", "USD")
@@ -43,7 +73,7 @@ class AnalyticsView(APIView):
             today = timezone.now().date()
             start_date = today.replace(day=1)
             end_date = today
-        
+
         elif not start_date_str:
             # Only end_date provided
             try:
