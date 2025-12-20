@@ -1,4 +1,6 @@
 from djmoney.money import Money
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.db.models import Sum, Count, Q
 from rest_framework.response import Response
 from rest_framework import status
@@ -42,6 +44,14 @@ class CustomerViewset(ModelViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
+    
+    @swagger_auto_schema(
+        operation_summary="List all customers",
+        operation_description="This endpoint returns a list of all customers.",
+        responses={200: openapi.Response("List of customers", CustomerSerializer(many=True)),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+    )
 
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
@@ -58,6 +68,14 @@ class CustomerViewset(ModelViewSet):
         }
         return Response(result.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve a customer",
+        operation_description="This endpoint returns a single customer.",
+        responses={200: openapi.Response("Customer", CustomerSerializer),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+                   404: openapi.Response("Not Found", openapi.Schema(type="string"))}
+    )
     def retrieve(self, request, *args, **kwargs):
         try:
             result = super().retrieve(request, *args, **kwargs)
@@ -94,6 +112,14 @@ class CustomerViewset(ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    @swagger_auto_schema(
+        operation_summary="Delete a customer",
+        operation_description="This endpoint deletes a single customer.",
+        responses={204: openapi.Response("Customer deleted successfully."),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+                   404: openapi.Response("Not Found", openapi.Schema(type="string"))}
+    )
     def destroy(self, request, *args, **kwargs):
         """Soft delete the customer by setting is_active to False."""
         instance = self.get_object()
@@ -102,3 +128,28 @@ class CustomerViewset(ModelViewSet):
             {"message": "Customer deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    @swagger_auto_schema(
+        operation_summary="Update a customer",
+        operation_description="This endpoint updates a single customer.",
+        responses={200: openapi.Response("Customer updated successfully."),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+                   404: openapi.Response("Not Found", openapi.Schema(type="string"))}
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """Update the customer."""
+        return super().partial_update(request, *args, **kwargs)
+    
+
+    @swagger_auto_schema(
+        operation_summary="Create a customer",
+        operation_description="This endpoint creates a new customer.",
+        responses={201: openapi.Response("Customer created successfully."),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+                   404: openapi.Response("Not Found", openapi.Schema(type="string"))}
+    )
+    def create(self, request, *args, **kwargs):
+        """Create a new customer."""
+        return super().create(request, *args, **kwargs)

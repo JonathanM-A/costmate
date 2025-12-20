@@ -56,7 +56,7 @@ class InventoryItemView(ListCreateAPIView):
                 Q(created_by=user) | Q(is_default=True), is_active=True
             )
         )
-        return base_queryset.select_related("created_by").order_by("name")
+        return base_queryset.select_related("created_by").prefetch_related("inventory").order_by("name")
 
 
 class SupplierViewset(ModelViewSet):

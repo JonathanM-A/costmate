@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.conf import settings
 from django.shortcuts import redirect
+from django.urls import reverse
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -101,26 +102,35 @@ class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
     adapter_class = GoogleOAuth2Adapter
 
-    def post(self, request, *args, **kwargs):
+    # def get(self, request, *args, **kwargs):
+    #     code = request.query_params.get("code")
+    #     if not code:
+    #         return Response(
+    #             {"error": "Code parameter is required"},
+    #             status=status.HTTP_400_BAD_REQUEST,
+    #         )
+    #     requests.post(, data={"code": code})
+
+    def get(self, request, *args, **kwargs):
         try:
-            code = request.data.get("code")
+            code = request.query_params.get("code")
             if not code:
                 return Response(
                     {"error": "Code parameter is required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            redirect_uri = request.data.get("redirect_uri")
-            if not redirect_uri:
-                return Response(
-                    {
-                        "error": "redirect_uri parameter is required"
-                    }, status=status.HTTP_400_BAD_REQUEST
-                )
+            # redirect_uri = request.query_params.get("redirect_uri")
+            # if not redirect_uri:
+            #     return Response(
+            #         {
+            #             "error": "redirect_uri parameter is required"
+            #         }, status=status.HTTP_400_BAD_REQUEST
+            #     )
             
-            if redirect_uri != env("GOOGLE_CALLBACK_URL"):
-                return Response(
-                    {"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST
-                )
+            # if redirect_uri != env("GOOGLE_CALLBACK_URL"):
+            #     return Response(
+            #         {"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST
+            #     )
 
             # Get Google OAuth2 tokens
             token_endpoint = "https://oauth2.googleapis.com/token"
