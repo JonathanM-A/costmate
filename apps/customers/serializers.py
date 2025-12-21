@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 class CustomerSerializer(serializers.ModelSerializer):
     """Serializer for Customer Model"""
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    member_since = UserFormattedDate(source="created_at")
+    member_since = UserFormattedDate(source="created_at", required=False, read_only=True)
     orders = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
         exclude = ["updated_at", "is_active", "created_at"]
-        read_only_fields = ["id",]
+        read_only_fields = ["id","member_since","orders"]
 
     def get_orders(self, obj):
         return OrderSerializer(obj.orders.all(), many=True, context=self.context).data
