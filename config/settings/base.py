@@ -25,7 +25,7 @@ APPS_DIR = BASE_DIR / "apps"
 
 env = environ.Env()
 
-env.read_env(str(BASE_DIR / ".env"))
+env.read_env(str(BASE_DIR / ".env"), overwrite=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -105,7 +105,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -333,9 +333,6 @@ SOCIALACCOUNT_PROVIDERS = {
         },
     }
 }
-
-PASSWORD_RESET_CONFIRM_URL = "password_reset_confirm"
-
 
 # Simple JWT
 # https://www.django-rest-framework.org/api-guide/settings/
