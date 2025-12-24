@@ -9,7 +9,7 @@ import uuid
 User = get_user_model()
 
 class InventoryItem(BaseModel):
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
     unit = models.CharField(max_length=20, blank=True, null=True)
     is_default = models.BooleanField(default=False)
     created_by = models.ForeignKey(
