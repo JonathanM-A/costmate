@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from ..inventory.serializers import InventorySerializer
+from ..users.permissions import IsSubscriptionActive
 from ..orders.models import Order, OrderRecipe
 from ..orders.serializers import OrderSerializer
 from ..inventory.models import Inventory
@@ -35,7 +35,7 @@ class DashboardView(APIView):
     Optional filtering by date range using start_date and end_date query parameters.
     """
 
-    permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated, IsSubscriptionActive]
 
     @swagger_auto_schema(
         operation_summary="Get dashboard data",

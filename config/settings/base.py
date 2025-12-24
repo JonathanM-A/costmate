@@ -427,3 +427,6 @@ DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="S")  # typ
 TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=14)  # type: ignore
 DOMAIN_NAME = env("DOMAIN_NAME", default="http://localhost:8000")  # type: ignore
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")  # type: ignore
+
+# Feature Flags
+SUBSCRIPTION_LIVE = env.bool("SUBSCRIPTION_LIVE", default=False)  # type: ignore
