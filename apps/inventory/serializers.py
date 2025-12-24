@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from djmoney.money import Money
-from .models import InventoryItem, Supplier, Inventory, InventoryHistory
+from .models import InventoryItem, Supplier, Inventory, InventoryHistory, InventoryUnit
 from .services import InventoryUpdateService
 from ..users.utils import get_user_preferrence_from_cache
 import logging
@@ -11,13 +11,36 @@ import logging
 logger = logging.Logger(__name__)
 
 
+class InventoryUnitSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    
+    class Meta:
+        model = InventoryUnit
+        exclude = ["updated_at", "created_at", "is_active"]
+
+        extra_kwargs = {
+            "is_default": {"read_only": True},
+        }
+
+
 class InventoryItemSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = InventoryItem
-        exclude = ["updated_at", "created_at", "is_active", "is_default"]
+        exclude = ["updated_at", "created_at", "is_active"]
 
+        extra_kwargs = {
+            "is_default": {"read_only": True},
+        }
+
+    def validate_unit(self, value):
+        if value and not InventoryUnit.objects.filter(unit_symbol=value).exists():
+            raise serializers.ValidationError(
+                f"This unit symbol '{value}' is not pre-registered"
+            )
+        return value
+    
     def validate_name(self, value):
         if not value.strip():
             raise serializers.ValidationError("Name cannot be empty.")

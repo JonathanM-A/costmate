@@ -8,6 +8,24 @@ import uuid
 
 User = get_user_model()
 
+class InventoryUnit(BaseModel):
+    name = models.CharField(max_length=50, help_text="e.g., Kilogram")
+    unit_symbol = models.CharField(max_length=20, help_text="e.g., kg")
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="created_inventory_units",
+        blank=False,
+    )
+
+    class Meta:  # type: ignore
+        unique_together = ["unit_symbol", "created_by"]
+
+    def __str__(self):
+        return f"{self.name} ({self.unit_symbol})"
+    
+
 class InventoryItem(BaseModel):
     name = models.CharField(max_length=50)
     unit = models.CharField(max_length=20, blank=True, null=True)

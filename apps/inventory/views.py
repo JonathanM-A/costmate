@@ -18,22 +18,45 @@ from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.generics import ListCreateAPIView, ListAPIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from djmoney.money import Money
-from .models import InventoryItem, Supplier, Inventory, InventoryHistory
+from .models import InventoryItem, Supplier, Inventory, InventoryHistory, InventoryUnit
 from .serializers import (
     InventoryItemSerializer,
     SupplierSerializer,
     InventorySerializer,
     InventoryHistorySerializer,
+    InventoryUnitSerializer
 )
 from .filters import InventoryFilter
 from ..recipes.serializers import RecipeSerializer
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
+
+
+class InventoryUnitView(ModelViewSet):
+    queryset = InventoryUnit.objects.none()
+    serializer_class = InventoryUnitSerializer
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    http_method_names = ["get", "post"]
+    search_fields = ["name", "unit_symbol"]
+
+    def get_queryset(self):  # type: ignore
+        user = self.request.user
+        if not user.is_authenticated:
+            return InventoryUnit.objects.none()
+
+        base_queryset = (
+            InventoryUnit.objects.all()
+            if user.is_superuser
+            else InventoryUnit.objects.filter(
+                Q(created_by=user) | Q(is_default=True), is_active=True
+            )
+        )
+        return base_queryset.select_related("created_by").order_by("name")
 
 
 class InventoryItemView(ModelViewSet):
@@ -59,6 +82,14 @@ class InventoryItemView(ModelViewSet):
             )
         )
         return base_queryset.select_related("created_by").prefetch_related("inventory").order_by("name")
+    
+    def update(self, request, *args, **kwargs):
+        object_instance = self.get_object()
+        if object_instance.is_default:
+            raise ValidationError(
+                {"error": "Default inventory items cannot be modified."}
+            )
+        return super().update(request, *args, **kwargs)
 
 
 class SupplierViewset(ModelViewSet):
