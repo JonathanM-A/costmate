@@ -20,7 +20,7 @@ class InventoryItem(BaseModel):
     )
 
     class Meta:  # type: ignore
-        unique_together = ["name", "created_by"]
+        unique_together = ["name", "created_by", "unit"]
 
     def __str__(self):
         return f"{self.name} ({self.unit})" if self.unit else self.name
