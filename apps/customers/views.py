@@ -11,13 +11,14 @@ from .serializers import (
     CustomerSerializer,
 )
 from ..users.utils import get_user_preferrence_from_cache
+from ..users.permissions import IsSubscriptionActive
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class CustomerViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     serializer_class = CustomerSerializer
     queryset = Customer.objects.none()
     http_method_names = [m for m in ModelViewSet.http_method_names if m != "put"]

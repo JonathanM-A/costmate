@@ -1,19 +1,20 @@
 from datetime import date
 from djmoney.money import Money
-from django.db.models import Prefetch, Count, Sum, Q, Case, When, F
+from django.db.models import Prefetch, Count, Sum, Q
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import OrderSerializer, Order, OrderRecipe
+from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
 
 
 class OrderViewSet(ModelViewSet):
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
     filterset_fields = ["status", "delivery_date", "created_at", "customer__id", "order_recipes__recipe__category__name"]

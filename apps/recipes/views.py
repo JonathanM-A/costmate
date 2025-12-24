@@ -14,11 +14,12 @@ from .serializers import (
     RecipeCategorySerializer,
     RecipeCategory,
 )
+from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
 
 
 class RecipeViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     queryset = Recipe.objects.none()
     serializer_class = RecipeSerializer
     http_method_names = ["get", "post", "patch", "delete"]
@@ -119,7 +120,7 @@ class SharedRecipeViewset(ReadOnlyModelViewSet):
 
 
 class RecipeCategoryViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     queryset = RecipeCategory.objects.none()
     serializer_class = RecipeCategorySerializer
     http_method_names = ["get", "post", "patch", "delete"]
