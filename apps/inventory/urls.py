@@ -10,11 +10,11 @@ from .views import (
 router = routers.DefaultRouter()
 router.register(r"supplier", SupplierViewset, basename="supplier")
 router.register(r"inventory-stock", InventoryView, basename="inventory-stock")
+router.register(r"inventory-items", InventoryItemView, basename="inventory-items")
 
 app_name = "inventory"
 
 urlpatterns = [
-    path("inventory-items", InventoryItemView.as_view(), name="inventory_items"),
     path("inventory-history", InventoryHistoryView.as_view(), name="inventory_history"),
     path("", include(router.urls)),
 ]
