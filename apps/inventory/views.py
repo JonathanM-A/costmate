@@ -32,16 +32,18 @@ from .serializers import (
 )
 from .filters import InventoryFilter
 from ..recipes.serializers import RecipeSerializer
+from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
 
 
-class InventoryItemView(ListCreateAPIView):
+class InventoryItemView(ModelViewSet):
     """
     - **GET /inventory-items**: List/filter inventory items
     """
     queryset = InventoryItem.objects.none()
     serializer_class = InventoryItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    http_method_names = ["get", "post", "patch"]
     search_fields = ["name"]
 
     def get_queryset(self):  # type: ignore
@@ -62,7 +64,7 @@ class InventoryItemView(ListCreateAPIView):
 class SupplierViewset(ModelViewSet):
     queryset = Supplier.objects.none()
     serializer_class = SupplierSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     search_fields = ["name", "contact"]
 
     def get_queryset(self):  # type: ignore
@@ -172,7 +174,7 @@ class SupplierViewset(ModelViewSet):
 class InventoryView(ModelViewSet):
     queryset = Inventory.objects.none()
     serializer_class = InventorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     http_method_names = ["get", "delete", "post", "patch", "put"]
     search_fields = ["inventory_item__name"]
     filterset_class = InventoryFilter
@@ -415,7 +417,7 @@ class InventoryView(ModelViewSet):
 class InventoryHistoryView(ListAPIView):
     queryset = InventoryHistory.objects.none()
     serializer_class = InventoryHistorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
     filterset_fields = [
         "created_at",
         "incident_date",
