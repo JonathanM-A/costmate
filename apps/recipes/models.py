@@ -144,8 +144,8 @@ class Recipe(BaseModel):
                 + self.packaging_cost
                 + self.overhead_cost
             )
-            self.selling_price = self.cost_price * (
-                1 + (self.profit_margin / Decimal(100))
+            self.selling_price = self.cost_price / (
+                1 - (self.profit_margin / Decimal(100))
             )
         else:
             self.cost_price = 0
