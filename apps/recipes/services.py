@@ -10,7 +10,8 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 from .models import Recipe, RecipeInventory
-from ..inventory.models import Inventory
+from ..inventory.models import Inventory, InventoryItem
+from ..inventory.services import InventoryUnitService
 from ..users.utils import get_user_preferrence_from_cache
 
 
@@ -79,18 +80,35 @@ class RecipeService:
     @staticmethod
     def _bulk_create_ingredients(recipe, ingredients):
         """Create all recipe ingredients"""
-        recipe_inventories = RecipeInventory.objects.bulk_create(
-            [
+
+        uncreated_recipe_inventories = []
+
+        for  ing in ingredients:
+            quantity = ing["quantity"]
+            unit = ing.get("unit")
+
+            inventory_item_unit = InventoryItem.objects.filter(id=ing["inventory_item_id"]).values_list("unit", flat=True).first()
+            InventoryUnitService.validate_unit_compatibility(
+                inventory_item_unit, unit
+            )
+            converted_quantity = InventoryUnitService.convert_quantity(
+                inventory_item_unit, unit, quantity
+            )
+            quantity = converted_quantity
+            uncreated_recipe_inventories.append(
                 RecipeInventory(
                     recipe=recipe,
                     inventory_item_id=ing["inventory_item_id"],
-                    quantity=ing["quantity"],
+                    quantity=quantity,
                     cost=Decimal("0.00"),
                     suggested_cost=ing.get("suggested_cost", Decimal("0.00")),
                 )
-                for ing in ingredients
-            ]
+            )
+
+        recipe_inventories = RecipeInventory.objects.bulk_create(
+            uncreated_recipe_inventories
         )
+        
         return recipe_inventories
 
     @staticmethod
