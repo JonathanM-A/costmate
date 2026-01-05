@@ -3,8 +3,7 @@ from django.db import transaction
 from django.db.models import Case, When, DecimalField, F, Subquery, OuterRef, Max
 from django.db.models.functions import Cast
 from django.db.models import CharField
-from .models import Inventory, InventoryHistory
-from ..recipes.services import RecipeService
+from .models import Inventory, InventoryHistory, InventoryItem
 
 
 class InventoryUpdateService:
@@ -30,6 +29,8 @@ class InventoryUpdateService:
     @classmethod
     def _cascade_cost_updates(cls, histories, user):
         """Update all affected costs"""
+        from ..recipes.services import RecipeService
+
         # Calculate cost for InventoryHistory instances
         for history in histories:
             history.calculate_cost()
@@ -52,7 +53,19 @@ class InventoryUpdateService:
         for entry in entries:
             item_id = entry["inventory_item_id"]
             quantity = entry["quantity"]
+            unit = entry.get("unit")
 
+            inventory_item_unit = (
+                InventoryItem.objects.filter(id=item_id)
+                .values_list("unit", flat=True)
+                .first()
+            )
+
+            if InventoryUnitService.validate_unit_compatibility(inventory_item_unit, unit):
+                converted_quantity = InventoryUnitService.convert_quantity(
+                    inventory_item_unit, unit, quantity
+                )
+                quantity = converted_quantity
             histories.append(
                 InventoryHistory(
                     inventory_item_id=item_id,
@@ -72,10 +85,11 @@ class InventoryUpdateService:
     def _create_history_records(histories):
         """Bulf create history records"""
         return InventoryHistory.objects.bulk_create(histories)
-    
+
     @staticmethod
     def _update_supplier_total_spent(histories):
         from .models import Supplier  # Importing here to avoid circular imports
+
         """Update total spent for suppliers involved in the histories"""
         supplier_totals = {}
         for history in histories:
@@ -84,7 +98,7 @@ class InventoryUpdateService:
                 supplier_totals[history.supplier_id] += history.cost_price
         for supplier_id, total in supplier_totals.items():
             Supplier.objects.filter(id=supplier_id).update(
-                total_spent=F('total_spent') + total
+                total_spent=F("total_spent") + total
             )
 
     @staticmethod
@@ -153,3 +167,68 @@ class InventoryUpdateService:
                 total_value=F("quantity") * F("recent_max_cost"),
             )
         )
+
+
+class UnitMismatchError(Exception):
+    """Custom exception for unit mismatches."""
+
+    pass
+
+
+class InventoryUnitService:
+
+    CONVERSION_MAP = {
+        # Mass (Base: g)
+        "g": {"factor": 1.0, "type": "mass"},
+        "kg": {"factor": 1000.0, "type": "mass"},
+        "oz": {"factor": 28.3495, "type": "mass"},
+        "lb": {"factor": 453.592, "type": "mass"},
+        # Volume (Base: mL)
+        "ml": {"factor": 1.0, "type": "volume"},
+        "L": {"factor": 1000.0, "type": "volume"},
+        "fl oz": {"factor": 29.5735, "type": "volume"},
+        "cup": {"factor": 240.0, "type": "volume"},
+        "tsp": {"factor": 4.92892, "type": "volume"},
+        "tbsp": {"factor": 14.7868, "type": "volume"},
+        "pt": {"factor": 473.176, "type": "volume"},
+        "qt": {"factor": 946.353, "type": "volume"},
+        "gal": {"factor": 3785.41, "type": "volume"},
+    }
+
+    @classmethod
+    def validate_unit_compatibility(cls, inventory_item_unit, unit):
+        """Validate if inventory item unit is compatible with recipe unit."""
+
+        item_unit = cls.CONVERSION_MAP.get(inventory_item_unit.lower())
+        payload_unit = cls.CONVERSION_MAP.get(unit.lower())
+
+        if not item_unit or not payload_unit:
+            # If either unit is not in the conversion map, assume they are compatible (e.g., "pcs", "bottle")
+            return
+
+        if item_unit["type"] != payload_unit["type"]:
+            raise UnitMismatchError(
+                f"Unit mismatch: Inventory item unit '{inventory_item_unit}' "
+                f"is not compatible with recipe unit '{unit}'."
+            )
+
+        # Units are compatible
+        return True
+
+    @classmethod
+    def convert_quantity(cls, inventory_item_unit, unit, quantity):
+        """Convert quantity from recipe unit to inventory item unit."""
+
+        if inventory_item_unit.lower() == unit.lower():
+            return quantity
+
+        item_factor = cls.CONVERSION_MAP.get(inventory_item_unit.lower()).get("factor")
+        payload_factor = cls.CONVERSION_MAP.get(unit.lower()).get("factor")
+        if item_factor and payload_factor:
+            # Convert quantity to base unit, then to inventory item unit
+            base_quantity = quantity * payload_factor
+            converted_quantity = base_quantity / item_factor
+            return converted_quantity
+
+        # If either unit is not in the conversion map, return original quantity
+        return quantity

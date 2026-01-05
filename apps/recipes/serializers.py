@@ -79,6 +79,12 @@ class IngredientSerializer(serializers.Serializer):
         required=False,
         default=Decimal("0.00"),
     )
+    unit = serializers.CharField(max_length=10, required=False, allow_null=True)
+
+    class Meta:
+        extra_kwargs = {
+            "unit": {"required": False, "allow_null": True, "write_only": True},
+        }
     
 
     def get_fields(self):
