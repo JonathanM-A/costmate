@@ -212,7 +212,7 @@ def preload_inventory_items(apps, schema_editor):
             name=item["name"],
             unit=item["unit"],
             created_by=superuser,
-            default=True
+            is_default=True
         )
 
 
