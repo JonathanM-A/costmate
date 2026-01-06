@@ -4,6 +4,9 @@ from django.db.models import Case, When, DecimalField, F, Subquery, OuterRef, Ma
 from django.db.models.functions import Cast
 from django.db.models import CharField
 from .models import Inventory, InventoryHistory, InventoryItem
+import logging
+
+logger = logging.Logger(__name__)
 
 
 class InventoryUpdateService:
@@ -185,7 +188,7 @@ class InventoryUnitService:
         "lb": {"factor": 453.592, "type": "mass"},
         # Volume (Base: mL)
         "ml": {"factor": 1.0, "type": "volume"},
-        "L": {"factor": 1000.0, "type": "volume"},
+        "l": {"factor": 1000.0, "type": "volume"},
         "fl oz": {"factor": 29.5735, "type": "volume"},
         "cup": {"factor": 240.0, "type": "volume"},
         "tsp": {"factor": 4.92892, "type": "volume"},
@@ -207,6 +210,7 @@ class InventoryUnitService:
             return
 
         if item_unit["type"] != payload_unit["type"]:
+            logger.error(f"Unit mismatch: {inventory_item_unit} vs {unit}")
             raise UnitMismatchError(
                 f"Unit mismatch: Inventory item unit '{inventory_item_unit}' "
                 f"is not compatible with recipe unit '{unit}'."

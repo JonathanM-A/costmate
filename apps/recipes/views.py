@@ -48,6 +48,15 @@ class RecipeViewset(ModelViewSet):
             return RecipeDetailSerializer
         return super().get_serializer_class()
     
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
         recipe_stats = self.get_queryset().aggregate(
