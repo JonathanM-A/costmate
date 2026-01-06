@@ -222,8 +222,8 @@ class InventoryUnitService:
         if inventory_item_unit.lower() == unit.lower():
             return quantity
 
-        item_factor = cls.CONVERSION_MAP.get(inventory_item_unit.lower()).get("factor")
-        payload_factor = cls.CONVERSION_MAP.get(unit.lower()).get("factor")
+        item_factor = Decimal(cls.CONVERSION_MAP.get(inventory_item_unit.lower()).get("factor")) # type: ignore
+        payload_factor = Decimal(cls.CONVERSION_MAP.get(unit.lower()).get("factor")) # type: ignore
         if item_factor and payload_factor:
             # Convert quantity to base unit, then to inventory item unit
             base_quantity = quantity * payload_factor
