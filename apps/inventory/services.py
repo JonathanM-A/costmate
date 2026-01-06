@@ -230,7 +230,7 @@ class InventoryUnitService:
         payload_factor = Decimal(cls.CONVERSION_MAP.get(unit.lower()).get("factor")) # type: ignore
         if item_factor and payload_factor:
             # Convert quantity to base unit, then to inventory item unit
-            base_quantity = quantity * payload_factor
+            base_quantity = Decimal(quantity) * payload_factor
             converted_quantity = base_quantity / item_factor
             return converted_quantity
 
