@@ -93,12 +93,12 @@ class Inventory(BaseModel):
 
     cost_per_unit = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
     )
     total_value = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
     )
     days_of_stock_on_hand = models.IntegerField(default=0)
@@ -167,7 +167,7 @@ class InventoryHistory(BaseModel):
     )
     cost_per_unit = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
@@ -180,5 +180,5 @@ class InventoryHistory(BaseModel):
 
     def calculate_cost(self):
         if self.quantity > 0:
-            self.cost_per_unit = self.cost_price / self.quantity
+            self.cost_per_unit = Decimal(self.cost_price) / Decimal(self.quantity)
             self.save()

@@ -35,6 +35,9 @@ from .filters import InventoryFilter
 from ..recipes.serializers import RecipeSerializer
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
+import logging
+
+logger = logging.Logger(__name__)
 
 
 class InventoryUnitView(ModelViewSet):
@@ -241,6 +244,7 @@ class InventoryView(ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
         except Exception as e:
+            logger.error(f"Error creating inventory: {e}")
             return Response(
                 {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
             )

@@ -16,6 +16,9 @@ from .serializers import (
 )
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
+import logging
+
+logger = logging.Logger(__name__)
 
 
 class RecipeViewset(ModelViewSet):
@@ -52,6 +55,7 @@ class RecipeViewset(ModelViewSet):
         try:
             return super().create(request, *args, **kwargs)
         except Exception as e:
+            logger.error(f"Error creating recipe: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,

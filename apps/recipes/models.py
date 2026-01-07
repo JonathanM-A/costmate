@@ -39,7 +39,7 @@ class Recipe(BaseModel):
     )
     inventory_items_cost = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
@@ -85,7 +85,7 @@ class Recipe(BaseModel):
     )
     cost_price = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Calculated cost price",
@@ -93,7 +93,7 @@ class Recipe(BaseModel):
     )
     selling_price = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Calculated selling price",
@@ -170,13 +170,13 @@ class RecipeInventory(models.Model):
     )
     cost = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
     )
     suggested_cost = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         default=Decimal(0.00),
         validators=[MinValueValidator(0)],
         help_text="Suggested cost if not available from inventory",
