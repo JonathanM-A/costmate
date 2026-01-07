@@ -99,7 +99,7 @@ class Recipe(BaseModel):
         help_text="Calculated selling price",
     )
     is_draft = models.BooleanField(
-        default=True, help_text="Indicates if the recipe is a draft"
+        default=False, help_text="Indicates if the recipe is a draft"
     )
     instructions = models.TextField(
         blank=True,
