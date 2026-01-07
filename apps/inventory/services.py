@@ -77,6 +77,11 @@ class InventoryUpdateService:
                     cost_price=entry.get("cost_price"),
                     incident_date=entry.get("incident_date"),
                     created_by=user,
+                    cost_per_unit=(
+                        Decimal(entry.get("cost_price", 0)) / Decimal(quantity)
+                        if quantity > 0
+                        else Decimal(0)
+                    ),
                 )
             )
             # Aggregating quantities
@@ -228,9 +233,13 @@ class InventoryUnitService:
 
         item_factor = Decimal(cls.CONVERSION_MAP.get(inventory_item_unit.lower()).get("factor")) # type: ignore
         payload_factor = Decimal(cls.CONVERSION_MAP.get(unit.lower()).get("factor")) # type: ignore
+
+        print (type(item_factor), type(payload_factor))
+
         if item_factor and payload_factor:
             # Convert quantity to base unit, then to inventory item unit
             base_quantity = Decimal(quantity) * payload_factor
+            print(type(base_quantity))
             converted_quantity = base_quantity / item_factor
             return converted_quantity
 
