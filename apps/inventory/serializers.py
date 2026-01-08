@@ -7,6 +7,7 @@ from .models import InventoryItem, Supplier, Inventory, InventoryHistory, Invent
 from .services import InventoryUpdateService
 from ..users.utils import get_user_preferrence_from_cache
 import logging
+from decimal import Decimal
 
 logger = logging.Logger(__name__)
 
@@ -53,11 +54,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         cost_per_unit = instance.inventory.filter(
             created_by=user, is_active=True).first()
-        if cost_per_unit:
-            data["cost_per_unit"] = str(
-                Money(cost_per_unit.cost_per_unit, currency))
-        else:
-            data["cost_per_unit"] = str(Money(0, currency))
+        data["cost_per_unit"] = cost_per_unit.cost_per_unit if cost_per_unit else Decimal(0.00)
         return data
 
 class SupplierSerializer(serializers.ModelSerializer):
