@@ -46,6 +46,8 @@ class InventoryAdmin(admin.ModelAdmin):
         "reorder_level",
         "is_below_reorder_level",
         "created_by",
+        "cost_per_unit",
+        "total_value",
     )
     list_filter = ("created_by", "inventory_item__is_default")
     search_fields = ("inventory_item__name",)
