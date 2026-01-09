@@ -118,7 +118,15 @@ class SupplierViewset(ModelViewSet):
         )
 
     def list(self, request, *args, **kwargs):
+        from decimal import Decimal
         result = super().list(request, *args, **kwargs)
+
+        for supplier in self.get_queryset():
+            supplier.total_spent = supplier.history.aggregate(
+                total_spent=Sum("cost_price")
+            )["total_spent"] or Decimal(0)
+            print(supplier.total_spent)
+            supplier.save()
 
         currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
