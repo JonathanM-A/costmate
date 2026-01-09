@@ -1,8 +1,8 @@
 from djmoney.money import Money
+from babel.numbers import get_currency_symbol
 from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
-from djmoney.money import Money
 from .models import InventoryItem, Supplier, Inventory, InventoryHistory, InventoryUnit
 from .services import InventoryUpdateService
 from ..users.utils import get_user_preferrence_from_cache
@@ -177,8 +177,14 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
             self.context["request"].user.id, "currency", "USD"
         )
 
-        representation["cost_price"] = str(Money(instance.cost_price, currency))
-        representation["cost_per_unit"] = str(Money(instance.cost_per_unit, currency))
+        cost_price_money = Money(instance.cost_price, currency)
+        cost_per_unit_money = Money(instance.cost_per_unit, currency)
+
+        symbol = get_currency_symbol(currency, locale="en_US")
+
+        representation["cost_price"] = str(cost_price_money)
+        representation["cost_per_unit"] = f"{symbol}{cost_per_unit_money.amount:.4f}"
+
         representation["quantity"] = (
             str(instance.quantity) + instance.inventory_item.unit
         )
@@ -247,8 +253,13 @@ class InventorySerializer(serializers.ModelSerializer):
         currency = get_user_preferrence_from_cache(
             self.context["request"].user.id, "currency", "USD"
         )
-        representation["total_value"] = str(Money(instance.total_value, currency))
-        representation["cost_per_unit"] = str(Money(instance.cost_per_unit, currency))
+        total_money = Money(instance.total_value, currency)
+        cost_money = Money(instance.cost_per_unit, currency)
+    
+        symbol = get_currency_symbol(currency, locale="en_US")
+        representation["total_value"] = f"{symbol}{total_money.amount:.4f}"
+        representation["cost_per_unit"] = f"{symbol}{cost_money.amount:.4f}"
+
         representation["quantity"] += representation["inventory_item"]["unit"]
         representation["reorder_level"] = (
             str(instance.reorder_level) + instance.inventory_item.unit
