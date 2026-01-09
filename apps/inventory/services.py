@@ -3,7 +3,7 @@ from django.db import transaction
 from django.db.models import Case, When, DecimalField, F, Subquery, OuterRef, Max
 from django.db.models.functions import Cast
 from django.db.models import CharField
-from .models import Inventory, InventoryHistory, InventoryItem
+from .models import Inventory, InventoryHistory, InventoryItem, Supplier
 import logging
 
 logger = logging.Logger(__name__)
@@ -19,9 +19,11 @@ class InventoryUpdateService:
         """
         with transaction.atomic():
 
-            histories, updates = cls._prepare_data(user, entries)
+            histories, updates, suppliers_totals = cls._prepare_data(user, entries)
 
             cls._create_history_records(histories)
+
+            cls._update_supplier_total_spent(suppliers_totals)
 
             updated_items = cls._update_inventory(user, updates)
 
@@ -51,6 +53,7 @@ class InventoryUpdateService:
     def _prepare_data(user, entries):
         """Structure entries data"""
         histories = []
+        suppliers_totals = {}
         updates = {}
 
         for entry in entries:
@@ -87,27 +90,38 @@ class InventoryUpdateService:
             # Aggregating quantities
             updates[item_id] = updates.get(item_id, 0) + quantity
 
-        return histories, updates
+            # Aggregating supplier totals
+            supplier_id = entry.get("supplier_id")
+            cost_price = entry.get("cost_price", 0)
+            if supplier_id:
+                suppliers_totals.setdefault(supplier_id, 0)
+                suppliers_totals[supplier_id] += cost_price
+
+        return histories, updates, suppliers_totals
 
     @staticmethod
     def _create_history_records(histories):
         """Bulf create history records"""
         return InventoryHistory.objects.bulk_create(histories)
 
-    @staticmethod
-    def _update_supplier_total_spent(histories):
+    @classmethod
+    def _update_supplier_total_spent(cls, supplier_totals):
         from .models import Supplier  # Importing here to avoid circular imports
 
         """Update total spent for suppliers involved in the histories"""
-        supplier_totals = {}
-        for history in histories:
-            if history.supplier_id:
-                supplier_totals.setdefault(history.supplier_id, Decimal(0.00))
-                supplier_totals[history.supplier_id] += history.cost_price
-        for supplier_id, total in supplier_totals.items():
-            Supplier.objects.filter(id=supplier_id).update(
-                total_spent=F("total_spent") + total
+        suppliers = Supplier.objects.filter(
+            id__in=supplier_totals.keys()
+        ).select_for_update()
+
+        suppliers_total_spent = {str(s.id): s.total_spent for s in suppliers}
+
+        for supplier in suppliers:
+            additional_spent = supplier_totals.get(str(supplier.id))
+            supplier.total_spent = (
+                suppliers_total_spent[str(supplier.id)] + Decimal(additional_spent)
             )
+        
+        Supplier.objects.bulk_update(suppliers, ["total_spent"])
 
     @staticmethod
     def _update_inventory(user, updates):
@@ -241,6 +255,7 @@ class InventoryUnitService:
             base_quantity = Decimal(quantity) * payload_factor
             print(type(base_quantity))
             converted_quantity = base_quantity / item_factor
+            print(type(converted_quantity))
             return converted_quantity
 
         # If either unit is not in the conversion map, return original quantity

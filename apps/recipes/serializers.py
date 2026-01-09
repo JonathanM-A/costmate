@@ -17,16 +17,7 @@ class RecipeCategorySerializer(serializers.ModelSerializer):
         model = RecipeCategory
         fields = ["id", "name", "description", "created_by"]
         read_only_fields = ["id", "created_by", "created_at", "updated_at", "is_active"]
-        extra_kwargs = {
-            "name": {
-                "validators": [
-                    UniqueValidator(
-                        queryset=Recipe.objects.all(),
-                        message="A recipe with this name already exists.",
-                    )
-                ]
-            },
-        }
+        
 
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
@@ -155,14 +146,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             "packaging_cost": {"write_only": True},
             "overhead_cost": {"write_only": True},
             "instructions": {"write_only": True},
-            "name": {
-                "validators": [
-                    UniqueValidator(
-                        queryset=Recipe.objects.all(),
-                        message="A recipe with this name already exists.",
-                    )
-                ]
-            },
         }
 
     def create(self, validated_data):
