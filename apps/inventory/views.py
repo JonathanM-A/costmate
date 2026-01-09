@@ -409,7 +409,7 @@ class InventoryView(ModelViewSet):
                     {"error": "Failed to decrease stock."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
+            inventory.calculate_total_value()
             inventory.refresh_from_db()
 
             # Log the inventory history

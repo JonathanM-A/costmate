@@ -106,6 +106,10 @@ class Inventory(BaseModel):
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory"
         unique_together = ["inventory_item", "created_by"]
+    
+    def calculate_total_value(self):
+        self.total_value = self.quantity * self.cost_per_unit
+        self.save()
 
     def calculate_cost(self):
         inventory_item_history = self.inventory_item.history.filter(  # type: ignore
