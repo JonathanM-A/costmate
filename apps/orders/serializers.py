@@ -93,11 +93,7 @@ class OrderSerializer(serializers.ModelSerializer):
         currency = get_user_preferrence_from_cache(
             self.context["request"].user.id, "currency", "USD"
         ) 
-        tax_enabled = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "tax_enabled", default=False
-        )
 
-        representation["tax_enabled"] = tax_enabled
         representation["total_value"] = str(
             Money(amount=instance.total_value, currency=currency)
         )
