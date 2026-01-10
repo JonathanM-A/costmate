@@ -47,8 +47,25 @@ class OrderViewSet(ModelViewSet):
         context["request"] = self.request
         return context
 
+    def retrieve(self, request, *args, **kwargs):
+        results = super().retrieve(request, *args, **kwargs)
+
+        tax_enabled = get_user_preferrence_from_cache(
+            request.user.id, "tax_enabled", False
+        )
+
+        results.data = {
+            "order": results.data,
+            "tax_enabled": tax_enabled,
+        }
+        return Response(results.data, status=status.HTTP_200_OK)
+
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
+
+        tax_enabled = get_user_preferrence_from_cache(
+            request.user.id, "tax_enabled", False
+        )
 
         order_stats = self.get_queryset().aggregate(
             total_orders=Count("id", filter=Q(status="completed")),
@@ -77,6 +94,7 @@ class OrderViewSet(ModelViewSet):
         result.data = {
             "orders": result.data,
             "stats": {**order_stats},
+            "tax_enabled": tax_enabled,
         }
         return Response(result.data, status=status.HTTP_200_OK)
 
