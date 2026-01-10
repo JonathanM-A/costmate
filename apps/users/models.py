@@ -144,6 +144,17 @@ class UserPreferences(BaseModel):
         null=True,
     )  # Store notification preferences as a JSON object
     # {"stock_alerts": True, "order_reminder": False, "weekly_reports": True}
+    tax_enabled = models.BooleanField(
+        default=False,
+        help_text="Indicates whether tax should be applied to orders.",
+    )
+    tax_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal(00.00),
+        help_text="Tax rate as a percentage (e.g., 20.00 for 20%)"
+    )
+
 
     def clean(self):
         super().clean()
