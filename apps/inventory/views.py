@@ -2,6 +2,7 @@ from datetime import datetime
 from djmoney.money import Money
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from decimal import Decimal
 from django.db.models import (
     Q,
     F,
@@ -370,7 +371,7 @@ class InventoryView(ModelViewSet):
     @action(methods=["put"], detail=True, url_path="decrease")
     def decrease_stock(self, request, *args, pk=None, **kwargs):
         inventory = self.get_object()
-        quantity = int(request.data.get("quantity", 0))
+        quantity = Decimal(request.data.get("quantity", 0))
         incident_date = request.data.get("incident_date", datetime.today())
         
         if isinstance(incident_date, str):
@@ -401,6 +402,7 @@ class InventoryView(ModelViewSet):
 
         with transaction.atomic():
             # Decrease the stock
+            print(quantity)
             updated = Inventory.objects.filter(pk=pk, quantity__gte=quantity).update(
                 quantity=F("quantity") - quantity
             )
@@ -409,8 +411,9 @@ class InventoryView(ModelViewSet):
                     {"error": "Failed to decrease stock."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             inventory.refresh_from_db()
+            inventory.calculate_total_value()
+            print("After decrease, total value:", inventory.total_value)
 
             # Log the inventory history
             inventory_history_data = {
