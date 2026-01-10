@@ -6,6 +6,7 @@ from uuid import uuid4
 from ..common.models import BaseModel
 from ..customers.models import Customer
 from ..recipes.models import Recipe
+from ..users.utils import get_user_preferrence_from_cache
 
 User = get_user_model()
 
@@ -33,6 +34,12 @@ class Order(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    tax_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     delivery_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=20,
@@ -51,15 +58,26 @@ class Order(BaseModel):
         """
         Calculate the total value of the order based on the associated recipes.
         """
+        user = self.created_by
+        tax_rate = get_user_preferrence_from_cache(
+            user.id, "tax_rate", default=Decimal("00.00")
+        )
         for order_recipe in self.order_recipes.all():
             order_recipe.save()
-        self.total_value = sum(order_recipe.line_value for order_recipe in self.order_recipes.all())
-        total_cost_price = sum(order_recipe.line_cost_price for order_recipe in self.order_recipes.all())
+        self.total_value = sum(
+            order_recipe.line_value for order_recipe in self.order_recipes.all()
+        )
+        total_cost_price = sum(
+            order_recipe.line_cost_price for order_recipe in self.order_recipes.all()
+        )
         self.profit = self.total_value - total_cost_price
         self.profit_percentage = (
             (self.profit / total_cost_price * 100)
             if total_cost_price > 0
             else Decimal(0.00)
+        )
+        self.tax_amount = (self.total_value * Decimal(tax_rate) / Decimal(100)).quantize(
+            Decimal("0.01")
         )
 
     def save(self, *args, **kwargs):

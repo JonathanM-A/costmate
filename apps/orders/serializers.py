@@ -49,6 +49,7 @@ class OrderSerializer(serializers.ModelSerializer):
     order_recipes = OrderRecipeSerializer(many=True, read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     delivery_date = UserFormattedDate(allow_null=True, required=False)
+    total_with_tax = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -63,10 +64,18 @@ class OrderSerializer(serializers.ModelSerializer):
             "total_value",
             "profit",
             "profit_percentage",
+            "tax_amount",
         ]
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
         }
+
+    def get_total_with_tax(self, obj):
+        currency = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+        total_with_tax = obj.total_value + obj.tax_amount
+        return str(Money(amount=total_with_tax, currency=currency))
 
     def get_fields(self):
         fields = super().get_fields()
@@ -80,12 +89,19 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+
         currency = get_user_preferrence_from_cache(
             self.context["request"].user.id, "currency", "USD"
+        ) 
+        tax_enabled = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "tax_enabled", default=False
         )
+
+        representation["tax_enabled"] = tax_enabled
         representation["total_value"] = str(
             Money(amount=instance.total_value, currency=currency)
         )
+        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=currency))
         representation["profit"] = str(Money(amount=instance.profit, currency=currency))
         representation["profit_percentage"] = str(instance.profit_percentage) + "%"
         representation["customer"] = instance.customer.name
