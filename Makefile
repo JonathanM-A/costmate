@@ -31,7 +31,7 @@ clean:
 
 # Production commands
 prod-build:
-	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml build
+	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml build --pull
 
 prod-build-nocache:
 	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml build --no-cache

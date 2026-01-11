@@ -34,13 +34,19 @@ jobs:
             
             echo '🚀 Building and deploying...'
             make prod-build
-            make prod-recreate
+            
+            echo '🆙 Starting containers...'
+            make prod-up
             
             echo '🗃 Running migrations...'
             make migrate
             
             echo '🧹 Collecting static files...'
             make collectstatic
+
+            echo 'Cleaning up old Docker data...'
+            docker system prune -f
+            docker builder prune -f --filter until=24h
             
             echo '✅ Deployment complete!'
           "
