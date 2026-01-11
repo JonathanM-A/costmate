@@ -59,7 +59,7 @@ class InventoryUpdateService:
         for entry in entries:
             item_id = entry["inventory_item_id"]
             quantity = entry["quantity"]
-            unit = entry.get("unit")
+            unit = entry.get("unit", None)
 
             inventory_item_unit = (
                 InventoryItem.objects.filter(id=item_id)
@@ -67,11 +67,13 @@ class InventoryUpdateService:
                 .first()
             )
 
-            if InventoryUnitService.validate_unit_compatibility(inventory_item_unit, unit):
-                converted_quantity = InventoryUnitService.convert_quantity(
-                    inventory_item_unit, unit, quantity
-                )
-                quantity = converted_quantity
+            if unit:
+                print("Unit: ", unit)
+                if InventoryUnitService.validate_unit_compatibility(inventory_item_unit, unit):
+                    converted_quantity = InventoryUnitService.convert_quantity(
+                        inventory_item_unit, unit, quantity
+                    )
+                    quantity = converted_quantity
             histories.append(
                 InventoryHistory(
                     inventory_item_id=item_id,
