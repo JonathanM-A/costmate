@@ -88,13 +88,14 @@ class RecipeService:
             unit = ing.get("unit")
 
             inventory_item_unit = InventoryItem.objects.filter(id=ing["inventory_item_id"]).values_list("unit", flat=True).first()
-            InventoryUnitService.validate_unit_compatibility(
-                inventory_item_unit, unit
-            )
-            converted_quantity = InventoryUnitService.convert_quantity(
-                inventory_item_unit, unit, quantity
-            )
-            quantity = converted_quantity
+            if unit:
+                InventoryUnitService.validate_unit_compatibility(
+                    inventory_item_unit, unit
+                )
+                converted_quantity = InventoryUnitService.convert_quantity(
+                    inventory_item_unit, unit, quantity
+                )
+                quantity = converted_quantity
             uncreated_recipe_inventories.append(
                 RecipeInventory(
                     recipe=recipe,
