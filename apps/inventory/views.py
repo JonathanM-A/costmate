@@ -225,13 +225,19 @@ class InventoryView(ModelViewSet):
             else Inventory.objects.filter(created_by=user, is_active=True)
         )
 
+        inventory_prefetch = Prefetch(
+            "inventory_item__inventory",
+            queryset=Inventory.objects.filter(created_by=user, is_active=True),
+            to_attr="user_inventory",
+        )
+
         return base_queryset.annotate(
             below_reorder=Case(
                 When(quantity__lt=F("reorder_level"), then=Value(True)),
                 default=Value(False),
                 output_field=BooleanField(),
             )
-        ).select_related("inventory_item").order_by("inventory_item__name")
+        ).prefetch_related(inventory_prefetch).select_related("inventory_item").order_by("inventory_item__name")
 
     def create(self, request, *args, **kwargs):
         try:

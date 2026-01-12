@@ -41,7 +41,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
                 f"This unit symbol '{value}' is not pre-registered"
             )
         return value
-    
+
     def validate_name(self, value):
         if not value.strip():
             raise serializers.ValidationError("Name cannot be empty.")
@@ -49,12 +49,14 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         user = self.context["request"].user
-        currency = get_user_preferrence_from_cache(
-            user.id, "currency", "USD")
         data = super().to_representation(instance)
-        cost_per_unit = instance.inventory.filter(
-            created_by=user, is_active=True).first()
-        data["cost_per_unit"] = cost_per_unit.cost_per_unit if cost_per_unit else Decimal(0.00)
+
+        related_inventory = getattr(instance, "user_inventory", instance.inventory.filter(created_by=user, is_active=True))
+        cost_record = next((i for i in related_inventory), None)
+
+        data["cost_per_unit"] = (
+            cost_record.cost_per_unit if cost_record else Decimal("0.00")
+        )
         return data
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -214,6 +216,15 @@ class InventorySerializer(serializers.ModelSerializer):
             "reorder_level",
             "days_of_stock_on_hand",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
