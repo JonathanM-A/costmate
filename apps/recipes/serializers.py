@@ -1,13 +1,13 @@
-from django.db.models import Q
-from rest_framework.validators import UniqueValidator
-from rest_framework import serializers
+from decimal import Decimal
+from babel.numbers import get_currency_symbol
 from djmoney.money import Money
+from django.db.models import Q
+from rest_framework import serializers
 from .models import Recipe, RecipeInventory, RecipeCategory
 from .services import RecipeService
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
 from ..users.utils import get_user_preferrence_from_cache
 import logging
-from decimal import Decimal
 
 logger = logging.Logger(__name__)
 
@@ -104,6 +104,15 @@ class RecipeSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField(read_only=True)
     shareable_link = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
+
     def get_fields(self):
         fields = super().get_fields()
         user = self.context["request"].user
@@ -158,9 +167,6 @@ class RecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profit_margin"] = str(instance.profit_margin) + "%"
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
         money_fields = [
             "cost_price",
             "selling_price",
@@ -168,7 +174,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, currency))
+                representation[field] = str(Money(amount, self._currency))
         return representation
 
 
@@ -215,12 +221,18 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profit_margin"] = str(instance.profit_margin) + "%"
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
         money_fields = [
             "inventory_items_cost",
             "labour_cost",
@@ -232,5 +244,5 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, currency))
+                representation[field] = str(Money(amount, self._currency))
         return representation

@@ -166,7 +166,7 @@ class SupplierViewset(ModelViewSet):
         result = []
         count = 0
         for item in inventory_items:
-            history = item.history.all()[:2]  # Get the two most recent history entries
+            history = item.history.all()[:2]  # type: ignore
             if len(history) >= 2:
                 count += 1
                 if count > 5:
@@ -321,7 +321,7 @@ class InventoryView(ModelViewSet):
                         Money(
                             0,
                             get_user_preferrence_from_cache(
-                                user.id, "currency", "USD"
+                                user.id, "currency", "USD" # type: ignore
                             ),
                         )
                     ),
