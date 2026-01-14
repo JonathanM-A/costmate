@@ -27,7 +27,7 @@ class RecipeViewset(ModelViewSet):
     serializer_class = RecipeSerializer
     http_method_names = ["get", "post", "patch", "delete"]
     search_fields = ["name"]
-    filterset_fields = ["category__name"]
+    filterset_fields = ["category__name", "is_draft"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
