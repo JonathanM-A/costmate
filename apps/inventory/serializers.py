@@ -1,3 +1,4 @@
+from decimal import Decimal
 from djmoney.money import Money
 from babel.numbers import get_currency_symbol
 from django.db.models import Q
@@ -7,7 +8,6 @@ from .models import InventoryItem, Supplier, Inventory, InventoryHistory, Invent
 from .services import InventoryUpdateService
 from ..users.utils import get_user_preferrence_from_cache
 import logging
-from decimal import Decimal
 
 logger = logging.Logger(__name__)
 
@@ -41,7 +41,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
                 f"This unit symbol '{value}' is not pre-registered"
             )
         return value
-    
+
     def validate_name(self, value):
         if not value.strip():
             raise serializers.ValidationError("Name cannot be empty.")
@@ -49,12 +49,14 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         user = self.context["request"].user
-        currency = get_user_preferrence_from_cache(
-            user.id, "currency", "USD")
         data = super().to_representation(instance)
-        cost_per_unit = instance.inventory.filter(
-            created_by=user, is_active=True).first()
-        data["cost_per_unit"] = cost_per_unit.cost_per_unit if cost_per_unit else Decimal(0.00)
+
+        related_inventory = getattr(instance, "user_inventory", instance.inventory.filter(created_by=user, is_active=True))
+        cost_record = next((i for i in related_inventory), None)
+
+        data["cost_per_unit"] = (
+            cost_record.cost_per_unit if cost_record else Decimal("0.00")
+        )
         return data
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -73,6 +75,15 @@ class SupplierSerializer(serializers.ModelSerializer):
                 message="Supplier with this contact already exists.",
             )
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
 
     def get_products(self, obj):
         products_qs = (
@@ -111,9 +122,7 @@ class SupplierSerializer(serializers.ModelSerializer):
         representation["total_spent"] = str(
             Money(
                 instance.total_spent,
-                get_user_preferrence_from_cache(
-                    self.context["request"].user.id, "currency", "USD"
-                ),
+                self._currency,
             )
         )
         return representation
@@ -139,6 +148,15 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
 
     def get_fields(self):
         fields = super().get_fields()
@@ -173,17 +191,12 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
 
-        cost_price_money = Money(instance.cost_price, currency)
-        cost_per_unit_money = Money(instance.cost_per_unit, currency)
-
-        symbol = get_currency_symbol(currency, locale="en_US")
+        cost_price_money = Money(instance.cost_price, self._currency)
+        cost_per_unit_money = Money(instance.cost_per_unit, self._currency)
 
         representation["cost_price"] = str(cost_price_money)
-        representation["cost_per_unit"] = f"{symbol}{cost_per_unit_money.amount:.4f}"
+        representation["cost_per_unit"] = f"{self._symbol}{cost_per_unit_money.amount:.4f}"
 
         representation["quantity"] = (
             str(instance.quantity) + instance.inventory_item.unit
@@ -214,6 +227,15 @@ class InventorySerializer(serializers.ModelSerializer):
             "reorder_level",
             "days_of_stock_on_hand",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+        self._symbol = get_currency_symbol(self._currency, locale="en_US")
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
@@ -250,15 +272,12 @@ class InventorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
-        total_money = Money(instance.total_value, currency)
-        cost_money = Money(instance.cost_per_unit, currency)
-    
-        symbol = get_currency_symbol(currency, locale="en_US")
-        representation["total_value"] = f"{symbol}{total_money.amount:.4f}"
-        representation["cost_per_unit"] = f"{symbol}{cost_money.amount:.4f}"
+
+        total_money = Money(instance.total_value, self._currency)
+        cost_money = Money(instance.cost_per_unit, self._currency)
+
+        representation["total_value"] = f"{self._symbol}{total_money.amount:.4f}"
+        representation["cost_per_unit"] = f"{self._symbol}{cost_money.amount:.4f}"
 
         representation["quantity"] += representation["inventory_item"]["unit"]
         representation["reorder_level"] = (

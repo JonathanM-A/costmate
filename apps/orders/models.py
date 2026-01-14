@@ -60,15 +60,15 @@ class Order(BaseModel):
         """
         user = self.created_by
         tax_rate = get_user_preferrence_from_cache(
-            user.id, "tax_rate", default=Decimal("00.00")
+            user.id, "tax_rate", default=Decimal("00.00")  # type: ignore
         )
-        for order_recipe in self.order_recipes.all():
+        for order_recipe in self.order_recipes.all():  # type: ignore
             order_recipe.save()
         self.total_value = sum(
-            order_recipe.line_value for order_recipe in self.order_recipes.all()
+            order_recipe.line_value for order_recipe in self.order_recipes.all()  # type: ignore
         )
         total_cost_price = sum(
-            order_recipe.line_cost_price for order_recipe in self.order_recipes.all()
+            order_recipe.line_cost_price for order_recipe in self.order_recipes.all()  # type: ignore
         )
         self.profit = self.total_value - total_cost_price
         self.profit_percentage = (
@@ -87,7 +87,7 @@ class Order(BaseModel):
         if not self.order_no:
             last_order = Order.objects.order_by("created_at").last()
             if last_order:
-                last_order_no = int(last_order.order_no.split("-")[-1])
+                last_order_no = int(last_order.order_no.split("-")[-1])  # type: ignore
                 self.order_no = f"ORD-{last_order_no + 1:05d}"
             else:
                 self.order_no = "ORD-00001"
@@ -125,7 +125,7 @@ class OrderRecipe(models.Model):
         Calculate the total price for this order recipe based on the quantity and price per unit.
         """
         self.line_value = self.recipe.selling_price * self.quantity
-        self.line_cost_price = self.recipe.cost_price * self.quantity
+        self.line_cost_price = self.recipe.cost_price * self.quantity #type: ignore
 
     def save(self, *args, **kwargs):
         """
@@ -139,7 +139,7 @@ class OrderRecipe(models.Model):
         Update the inventory based on the quantity change.
         This method should be called when the order recipe is created or updated.
         """
-        recipe_ingredients = self.recipe.ingredients.all()
+        recipe_ingredients = self.recipe.ingredients.all()  # type: ignore
         for ingredient in recipe_ingredients:
             inventory = ingredient.inventory_item.inventory.get(created_by=user)
             inventory.quantity -= ingredient.quantity * self.quantity

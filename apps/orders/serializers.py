@@ -1,7 +1,7 @@
+from djmoney.money import Money
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
-from djmoney.money import Money
 from ..users.utils import get_user_preferrence_from_cache
 from ..users.serializers import UserFormattedDate
 from .models import Order, Customer, Recipe, OrderRecipe
@@ -18,6 +18,14 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
         exclude = ["order"]
         read_only_fields = ["id", "line_value", "order"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+
     def get_fields(self):
         fields = super().get_fields()
         user = self.context["request"].user
@@ -30,14 +38,12 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
+        
         money_fields = ["line_cost_price", "line_value"]
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, currency))
+                representation[field] = str(Money(amount, self._currency))
 
         return representation
 
@@ -70,12 +76,17 @@ class OrderSerializer(serializers.ModelSerializer):
             "delivery_date": {"required": False, "allow_null": True},
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        user = request.user.id if request and request.user else None
+
+        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+
     def get_total_with_tax(self, obj):
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        )
         total_with_tax = obj.total_value + obj.tax_amount
-        return str(Money(amount=total_with_tax, currency=currency))
+        return str(Money(amount=total_with_tax, currency=self._currency))
 
     def get_fields(self):
         fields = super().get_fields()
@@ -90,15 +101,11 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        currency = get_user_preferrence_from_cache(
-            self.context["request"].user.id, "currency", "USD"
-        ) 
-
         representation["total_value"] = str(
-            Money(amount=instance.total_value, currency=currency)
+            Money(amount=instance.total_value, currency=self._currency)
         )
-        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=currency))
-        representation["profit"] = str(Money(amount=instance.profit, currency=currency))
+        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=self._currency))
+        representation["profit"] = str(Money(amount=instance.profit, currency=self._currency))
         representation["profit_percentage"] = str(instance.profit_percentage) + "%"
         representation["customer"] = instance.customer.name
         return representation
