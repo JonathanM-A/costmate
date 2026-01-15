@@ -404,11 +404,11 @@ CELERY_BEAT_SCHEDULE = {
 # Stripe Settings
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")  # type: ignore
 TIER_PLAN_MAPPING = {
-    "E": f"{env("ENTERPRISE_PLAN")}",
-    "P": f"{env("PRO_PLAN")}",
+    "UK_Y": f"{env("UK_YEARLY_PLAN")}",
+    "UK_M": f"{env("UK_MONTHLY_PLAN")}",
 }
-DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="S")  # type: ignore
-TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=14)  # type: ignore
+DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="UK_M")  # type: ignore
+TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=30)  # type: ignore
 DOMAIN_NAME = env("DOMAIN_NAME", default="http://localhost:8000")  # type: ignore
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")  # type: ignore
 

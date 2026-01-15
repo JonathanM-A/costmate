@@ -12,9 +12,8 @@ def get_default_subscription_tier():
 class Subscription(models.Model):
 
     TIER_CHOICES = [
-        ("S", "Starter"),
-        ("P", "Pro"),
-        ("E", "Enterprise"),
+        ("UK_M", "UK Monthly"),
+        ("UK_Y", "UK Yearly"),
     ]
 
     id = None
