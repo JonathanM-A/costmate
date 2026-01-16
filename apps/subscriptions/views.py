@@ -4,6 +4,7 @@ from drf_yasg import openapi
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -164,4 +165,38 @@ class ChangeSubscriptionView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error during subscription upgrade: {str(e)}")
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class SubscriptionDetailsView(RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary="Get subscription details",
+        operation_description="This endpoint retrieves the authenticated user's subscription details.",
+        responses={200: openapi.Response("Subscription details retrieved successfully", openapi.Schema(type="string")),
+                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+    )
+
+    def get(self, request, version):
+        """Retrieve the user's subscription details."""
+        try:
+            user = request.user
+            subscription = user.subscriptions
+
+            if not user.subscription:
+                return Response({"detail": "No active subscription found."}, status=status.HTTP_400_BAD_REQUEST)
+
+            data = {
+                "tier": subscription.tier,
+                "current_sub_start": subscription.current_sub_start,
+                "current_sub_end": subscription.current_sub_end,
+                "is_active": subscription.is_active,
+            }
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Unexpected error retrieving subscription details: {str(e)}")
             return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
