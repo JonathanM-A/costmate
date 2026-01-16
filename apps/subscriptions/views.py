@@ -185,7 +185,7 @@ class SubscriptionDetailsView(RetrieveAPIView):
             user = request.user
             subscription = user.subscriptions
 
-            if not user.subscription:
+            if not subscription:
                 return Response({"detail": "No active subscription found."}, status=status.HTTP_400_BAD_REQUEST)
 
             data = {
@@ -199,4 +199,4 @@ class SubscriptionDetailsView(RetrieveAPIView):
 
         except Exception as e:
             logger.error(f"Unexpected error retrieving subscription details: {str(e)}")
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
