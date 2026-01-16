@@ -185,6 +185,9 @@ class SubscriptionDetailsView(RetrieveAPIView):
             user = request.user
             subscription = user.subscriptions
 
+            if not user.subscription:
+                return Response({"detail": "No active subscription found."}, status=status.HTTP_400_BAD_REQUEST)
+
             data = {
                 "tier": subscription.tier,
                 "current_sub_start": subscription.current_sub_start,
