@@ -94,11 +94,15 @@ class CancelSubscriptionView(APIView):
                    403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
     )
 
-    def post(self, request, version):
+    def post(self, request, version=None):
         """Cancel the user's active subscription."""
         try:
             user = request.user
             subscription = user.subscriptions
+
+            if not subscription or not subscription.subscription_code:
+                logger.error(f"User {user.id} attempted to cancel but has no subscription_code.")
+                return Response({"error": "No active subscription code found."}, status=status.HTTP_400_BAD_REQUEST)
 
             if not subscription.is_active:
                 return Response({"detail": "No active subscription to cancel."}, status=status.HTTP_400_BAD_REQUEST)
