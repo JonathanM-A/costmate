@@ -76,7 +76,7 @@ def stripe_webhook(request, version):
 
         update_user_subscription(
             stripe_customer_id=customer_id,
-            subscription_id=subscription_id,
+            subscription_code=subscription_id,
             tier=product_tier,
             current_sub_start=current_sub_start,
             current_sub_end=end_date,
