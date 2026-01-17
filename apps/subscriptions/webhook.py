@@ -52,20 +52,12 @@ def stripe_webhook(request, version):
     if event["type"] == "customer.subscription.created":
         try:
             session = event["data"]["object"]
-            logger.info(
-                f"Processing customer.subscription.created for session ID: {session.get('id')}"
-            )
 
             subscription_id = session.get("id")
             customer_id = session.get("customer")
-            logger.info(
-                f"{subscription_id}, {customer_id}"
-            )
 
             data = session.get("items", {}).get("data", [])[0]
             plan_id = data.get("plan").get("id")
-
-            logger.info(f"Plan ID: {plan_id}")
 
             current_sub_start = datetime.fromtimestamp(
                 data.get("current_period_start"), tz=timezone.utc
@@ -80,8 +72,6 @@ def stripe_webhook(request, version):
                     product_tier = k
                     break
             
-            logger.info(f"Product tier: {product_tier}")
-
             update_user_subscription(
                 stripe_customer_id=customer_id,
                 subscription_code=subscription_id,
@@ -112,6 +102,19 @@ def stripe_webhook(request, version):
             current_sub_end=end_date,
             is_active=True,
         )
+    
+    elif event["type"] == "customer.subscription.deleted":
+        session = event["object"]
+        subscription_id = session.get("customer")
+        customer_id = session.get("customer")
+
+        update_user_subscription(
+            stripe_customer_id=customer_id,
+            is_cancelled=True
+        )
+        logger.info(f"Subscription {subscription_id} for Customer with Stripe ID {customer_id} ended.")
+
+
 
     elif event["type"] == "customer.subscription.updated":
         session = event["data"]["object"]
@@ -132,10 +135,6 @@ def stripe_webhook(request, version):
                 )
 
                 if customer_id and subscription_id:
-                    deactivate_expired_subscriptions.apply_async(
-                        eta=cancel_at_time,
-                        args=[customer_id],
-                    )  # type: ignore
                     update_user_subscription(
                         stripe_customer_id=customer_id,
                         is_cancelled=True
