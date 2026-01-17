@@ -23,7 +23,10 @@ def update_user_subscription(stripe_customer_id, **kwargs):
     except User.DoesNotExist:
         return
 
-    Subscription.objects.update_or_create(user=user, defaults=kwargs)
+    subscription, created =Subscription.objects.update_or_create(user=user, defaults=kwargs)
+    logger.info(
+        f"Subscription created: {created}"
+    )
 
 
 @csrf_exempt
@@ -77,9 +80,6 @@ def stripe_webhook(request, version):
             current_sub_start=current_sub_start,
             current_sub_end=end_date,
             is_active=True,
-        )
-        logger.info(
-            f"Subscription created for user with stripe ID {customer_id} with subscription ID {subscription_id}"
         )
 
     elif event["type"] == "invoice.payment_succeeded":
