@@ -21,6 +21,7 @@ def update_user_subscription(stripe_customer_id, **kwargs):
     try:
         user = User.objects.get(stripe_customer_id=stripe_customer_id)
     except User.DoesNotExist:
+        logger.info(f"User with Stripe Customer ID {stripe_customer_id} does not exist.")
         return
 
     subscription, created =Subscription.objects.update_or_create(user=user, defaults=kwargs)
