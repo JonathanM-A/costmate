@@ -204,3 +204,38 @@ class SubscriptionDetailsView(RetrieveAPIView):
         except Exception as e:
             logger.error(f"Unexpected error retrieving subscription details: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerifySubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Verify subscription status",
+        operation_description="This endpoint verifies the authenticated user's subscription status.",
+        responses={200: openapi.Response("Subscription status verified successfully", openapi.Schema(type="string")),
+                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
+                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+    )
+
+    def get(self, request, *args, **kwargs):
+        session_id = request.query_params.get("session_id")
+
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+
+            if session.payment_status != "paid":
+                return Response(
+                    {"status": "waiting", "message": "Payment processing..."},
+                    status=200,
+                )
+
+            user = request.user
+            if (
+                hasattr(user, "subscriptions") and user.subscriptions.is_active
+            ):
+                return Response({"status": "verified"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"status": "processing"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Invalid session {e}"}, status=status.HTTP_400_BAD_REQUEST)
