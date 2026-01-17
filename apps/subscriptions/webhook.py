@@ -49,38 +49,41 @@ def stripe_webhook(request, version):
 
     # Handle the event
     if event["type"] == "customer.subscription.created":
-        session = event["data"]["object"]
-        logger.info(
-            f"Processing customer.subscription.created for session ID: {session.get('id')}"
-        )
+        try:
+            session = event["data"]["object"]
+            logger.info(
+                f"Processing customer.subscription.created for session ID: {session.get('id')}"
+            )
 
-        subscription_id = session.get("id")
-        customer_id = session.get("customer")
+            subscription_id = session.get("id")
+            customer_id = session.get("customer")
 
-        data = session.get("items", {}).get("data", [])[0]
-        plan_id = data.get("plan").get("id")
+            data = session.get("items", {}).get("data", [])[0]
+            plan_id = data.get("plan").get("id")
 
-        current_sub_start = datetime.fromtimestamp(
-            data.get("current_period_start"), tz=timezone.utc
-        )
-        end_date = datetime.fromtimestamp(
-            data.get("current_period_end"), tz=timezone.utc
-        )
+            current_sub_start = datetime.fromtimestamp(
+                data.get("current_period_start"), tz=timezone.utc
+            )
+            end_date = datetime.fromtimestamp(
+                data.get("current_period_end"), tz=timezone.utc
+            )
 
-        product_tier = None
-        for k, v in settings.TIER_PLAN_MAPPING.items():
-            if v == plan_id:
-                product_tier = k
-                break
+            product_tier = None
+            for k, v in settings.TIER_PLAN_MAPPING.items():
+                if v == plan_id:
+                    product_tier = k
+                    break
 
-        update_user_subscription(
-            stripe_customer_id=customer_id,
-            subscription_code=subscription_id,
-            tier=product_tier,
-            current_sub_start=current_sub_start,
-            current_sub_end=end_date,
-            is_active=True,
-        )
+            update_user_subscription(
+                stripe_customer_id=customer_id,
+                subscription_code=subscription_id,
+                tier=product_tier,
+                current_sub_start=current_sub_start,
+                current_sub_end=end_date,
+                is_active=True,
+            )
+        except Exception as e:
+            logger.error(f"An error occured while creating subscription {e}")
 
     elif event["type"] == "invoice.payment_succeeded":
         session = event["data"]["object"]
