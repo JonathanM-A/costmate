@@ -111,7 +111,7 @@ class CancelSubscriptionView(APIView):
             if not subscription.is_active:
                 return Response({"detail": "No active subscription to cancel."}, status=status.HTTP_400_BAD_REQUEST)
 
-            stripe.Subscription.delete(subscription.subscription_code)
+            stripe.Subscription.modify(subscription.subscription_code, cancel_at_period_end=True)
 
             return Response({"detail": "Subscription cancelled successfully."}, status=status.HTTP_200_OK)
 
