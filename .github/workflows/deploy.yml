@@ -38,9 +38,6 @@ jobs:
             echo '🆙 Starting containers...'
             make prod-up
             
-            echo '🗃 Running migrations...'
-            make migrate
-            
             echo '🧹 Collecting static files...'
             make collectstatic
 
