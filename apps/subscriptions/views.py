@@ -54,6 +54,10 @@ class CreateSubscriptionView(APIView):
                 user.stripe_customer_id = customer.id
                 user.save()
             
+            # Check if user already has a subscription
+            if hasattr(user, "subscriptions") and user.subscriptions.is_active and not user.subscriptions.is_cancelled:
+                return Response({"error": "User already has an active subscription."})
+            
             checkout_session = stripe.checkout.Session.create(
                 customer=user.stripe_customer_id,
                 payment_method_types=['card'],
