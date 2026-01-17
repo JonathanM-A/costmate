@@ -276,6 +276,10 @@ LOGGING = {
             "level": LOG_LEVEL,
             "propagate": True,
         },
+        "": {
+            "handlers": ["console"],
+            "level": "INFO"
+        }
     },
 }
 
