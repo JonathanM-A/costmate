@@ -57,9 +57,14 @@ def stripe_webhook(request, version):
 
             subscription_id = session.get("id")
             customer_id = session.get("customer")
+            logger.info(
+                f"{subscription_id}, {customer_id}"
+            )
 
             data = session.get("items", {}).get("data", [])[0]
             plan_id = data.get("plan").get("id")
+
+            logger.info(f"Plan ID: {plan_id}")
 
             current_sub_start = datetime.fromtimestamp(
                 data.get("current_period_start"), tz=timezone.utc
@@ -73,6 +78,8 @@ def stripe_webhook(request, version):
                 if v == plan_id:
                     product_tier = k
                     break
+            
+            logger.info(f"Product tier: {product_tier}")
 
             update_user_subscription(
                 stripe_customer_id=customer_id,
