@@ -29,6 +29,8 @@ class SubscriptionAdmin(admin.ModelAdmin):
                     "current_sub_start",
                     "current_sub_end",
                     "is_active",
+                    "is_cancelled",
+                    "subscription_code"
                 ),
             },
         ),
