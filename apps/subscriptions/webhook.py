@@ -35,7 +35,7 @@ def stripe_webhook(request, version):
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
     try:
-        logger.debug("Verifying Stripe webhook signature.")
+        logger.info("Verifying Stripe webhook signature.")
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
     except ValueError as e:
         logger.error(f"Invalid payload: {e}")
@@ -47,7 +47,7 @@ def stripe_webhook(request, version):
     # Handle the event
     if event["type"] == "customer.subscription.created":
         session = event["data"]["object"]
-        logger.debug(
+        logger.info(
             f"Processing customer.subscription.created for session ID: {session.get('id')}"
         )
 
