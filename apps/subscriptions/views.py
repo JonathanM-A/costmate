@@ -197,6 +197,7 @@ class SubscriptionDetailsView(RetrieveAPIView):
                 "current_sub_start": subscription.current_sub_start,
                 "current_sub_end": subscription.current_sub_end,
                 "is_active": subscription.is_active,
+                "is_cancelled": subscription.is_cancelled
             }
 
             return Response(data, status=status.HTTP_200_OK)

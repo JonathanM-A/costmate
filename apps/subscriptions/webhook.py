@@ -70,10 +70,6 @@ def stripe_webhook(request, version):
                 product_tier = k
                 break
 
-        subscription = stripe.Subscription.retrieve(subscription_id)
-
-        start_date = datetime.fromtimestamp(subscription.start_date, tz=timezone.utc)
-
         update_user_subscription(
             stripe_customer_id=customer_id,
             subscription_code=subscription_id,
@@ -112,6 +108,9 @@ def stripe_webhook(request, version):
             f"Processing customer.subscription.updated for session ID: {session.get('id')}"
         )
 
+        customer_id = session.get("customer")
+        subscription_id = session.get("id")
+
         try:
             if session.get("cancel_at_period_end"):
                 logger.info(
@@ -120,16 +119,48 @@ def stripe_webhook(request, version):
                 cancel_at_time = datetime.fromtimestamp(
                     session.get("cancel_at"), tz=timezone.utc
                 )
-                customer_id = session.get("customer")
-                subscription_id = session.get("id")
 
                 if customer_id and subscription_id:
                     deactivate_expired_subscriptions.apply_async(
                         eta=cancel_at_time,
                         args=[customer_id],
                     )  # type: ignore
+                    update_user_subscription(
+                        stripe_customer_id=customer_id,
+                        is_cancelled=True
+                    )
 
                     logger.info(f"Subscription {subscription_id} marked as inactive.")
+            else:
+                logger.info(
+                    f"Subscription {session.get("id")} is being upgraded"
+                )
+
+                data = session.get("items", {}).get("data", [])[0]
+                plan_id = session.get("plan").get("id")
+
+                current_sub_start = datetime.fromtimestamp(
+                data.get("current_period_start"), tz=timezone.utc
+                )
+                end_date = datetime.fromtimestamp(
+                data.get("current_period_end"), tz=timezone.utc
+                )
+
+                product_tier = None
+                for k, v in settings.TIER_PLAN_MAPPING.items():
+                    if v == plan_id:
+                        product_tier = k
+                        break
+                
+                update_user_subscription(
+                    stripe_customer_id=customer_id,
+                    subscription_code=subscription_id,
+                    tier=product_tier,
+                    current_sub_start=current_sub_start,
+                    current_sub_end=end_date,
+                    is_active=True,
+                )
+
         except Exception as e:
             logger.error(f"Error processing subscription update: {str(e)}")
 

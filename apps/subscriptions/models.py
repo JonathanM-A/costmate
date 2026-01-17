@@ -27,6 +27,7 @@ class Subscription(models.Model):
     current_sub_end = models.DateTimeField(null=True, blank=True)
     subscription_code = models.CharField(max_length=50, null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_cancelled = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.email} - {self.tier} Subscription"
