@@ -8,7 +8,7 @@ from dj_rest_auth.views import (
 )
 from dj_rest_auth.registration.views import VerifyEmailView
 from rest_framework_simplejwt.views import TokenRefreshView
-from apps.users.views import CustomRegisterView
+from apps.users.views import CustomRegisterView, SessionView
 
 
 urlpatterns = [
@@ -20,6 +20,7 @@ urlpatterns = [
     ),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path("session/", SessionView.as_view(), name="session"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("password/change/", PasswordChangeView.as_view(), name="password_change"),
     path(

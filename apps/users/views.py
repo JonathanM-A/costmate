@@ -204,6 +204,21 @@ class GoogleCallbackView(APIView):
             )
 
 
+class SessionView(APIView):
+    """View to check authentication status and return user data"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        serializer = UserSerializer(request.user)
+        return Response(
+            {
+                "status": "authenticated",
+                "user": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 class UserPreferencesView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserPreferencesSerializer
