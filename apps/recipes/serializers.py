@@ -135,24 +135,16 @@ class RecipeSerializer(serializers.ModelSerializer):
             "category",
             "labour_time",
             "labour_rate",
-            "packaging_cost",
-            "overhead_cost",
-            "profit_margin",
-            "is_draft",
-            "instructions",
             "ingredients",
             "category_id",
-            "cost_price",
-            "selling_price",
+            "total_cost",
+            "is_draft",
             "shareable_link",
         ]
-        read_only_fields = ["id", "cost_price", "selling_price"]
+        read_only_fields = ["id", "total_cost"]
         extra_kwargs = {
             "labour_time": {"write_only": True},
             "labour_rate": {"write_only": True},
-            "packaging_cost": {"write_only": True},
-            "overhead_cost": {"write_only": True},
-            "instructions": {"write_only": True},
         }
 
     def create(self, validated_data):
@@ -164,15 +156,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profit_margin"] = str(instance.profit_margin) + "%"
-        money_fields = [
-            "cost_price",
-            "selling_price",
-        ]
-        for field in money_fields:
-            if field in representation:
-                amount = representation[field]
-                representation[field] = str(Money(amount, self.currency))
+        if "total_cost" in representation:
+            representation["total_cost"] = str(Money(representation["total_cost"], self.currency))
         return representation
 
 
@@ -211,8 +196,6 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             "inventory_items_cost",
             "labour_cost",
             "total_cost",
-            "cost_price",
-            "selling_price",
             "created_by",
             "created_at",
             "updated_at",
@@ -227,14 +210,10 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profit_margin"] = str(instance.profit_margin) + "%"
         money_fields = [
             "inventory_items_cost",
             "labour_cost",
-            "packaging_cost",
-            "overhead_cost",
-            "cost_price",
-            "selling_price",
+            "total_cost",
         ]
         for field in money_fields:
             if field in representation:

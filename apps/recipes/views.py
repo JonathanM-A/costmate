@@ -67,8 +67,7 @@ class RecipeViewset(ModelViewSet):
             total_recipes=Count("id"),
             total_drafts=Count("id", filter=Q(is_draft=True)),
             total_active=Count("id", filter=Q(is_draft=False)),
-            total_cost=Sum("cost_price"),
-            avg_profit_margin=Avg("profit_margin"),
+            total_cost=Sum("total_cost"),
         )
 
         currency = get_user_preferrence_from_cache(
@@ -77,9 +76,6 @@ class RecipeViewset(ModelViewSet):
         recipe_stats["total_cost"] = str(Money(
             recipe_stats["total_cost"] or 0, currency
         ))
-        
-        if not recipe_stats["avg_profit_margin"]:
-            recipe_stats["avg_profit_margin"] = 0
 
         result.data = {
             "recipes": result.data,
