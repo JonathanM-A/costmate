@@ -6,7 +6,13 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import OrderSerializer, Order, OrderRecipe
+from .serializers import (
+    OrderSerializer,
+    Order,
+    OrderRecipe,
+    Overhead,
+    OverheadSerializer,
+)
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache
 
@@ -14,10 +20,16 @@ from ..users.utils import get_user_preferrence_from_cache
 class OrderViewSet(ModelViewSet):
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["customer__name", "order_no"]
-    filterset_fields = ["status", "delivery_date", "created_at", "customer__id", "order_recipes__recipe__category__name"]
+    filterset_fields = [
+        "status",
+        "delivery_date",
+        "created_at",
+        "customer__id",
+        "order_recipes__recipe__category__name",
+    ]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
@@ -138,3 +150,66 @@ class OrderViewSet(ModelViewSet):
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=200)
+
+
+class OverheadViewSet(ModelViewSet):
+    queryset = Overhead.objects.none()
+    serializer_class = OverheadSerializer
+    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    http_method_names = ["get", "post", "put", "delete"]
+    search_fields = ["name"]
+
+    def get_queryset(self):  # type: ignore
+        user = self.request.user
+        if not user.is_authenticated:
+            return Overhead.objects.none()
+
+        return (
+            Overhead.objects.all()
+            if user.is_superuser
+            else Overhead.objects.filter(created_by=user)
+        ).order_by("name")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def list(self, request, *args, **kwargs):
+        result = super().list(request, *args, **kwargs)
+
+        estimated_monthly_orders = get_user_preferrence_from_cache(
+            request.user.id, "estimated_monthly_orders", 10
+        )
+        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
+
+        qs = self.get_queryset()
+        total_value = qs.aggregate(total=Sum("yearly_cost"))["total"] or 0
+        estimated_overhead_per_order = (
+            (total_value / estimated_monthly_orders)
+            if estimated_monthly_orders > 0
+            else 0
+        )
+
+        result.data = {
+            "overheads": result.data,
+            "estimated_overhead_per_order": str(
+                Money(
+                    estimated_overhead_per_order,
+                    currency,
+                )
+            ),
+            "estimated_monthly_orders": estimated_monthly_orders,
+            "total_yearly_overhead": str(
+                Money(
+                    total_value,
+                    currency,
+                )
+            ),
+        }
+        return Response(result.data, status=status.HTTP_200_OK)

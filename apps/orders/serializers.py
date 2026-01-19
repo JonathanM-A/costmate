@@ -4,7 +4,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from ..users.utils import get_user_preferrence_from_cache
 from ..users.serializers import UserFormattedDate
-from .models import Order, Customer, Recipe, OrderRecipe
+from .models import Order, Customer, Recipe, OrderRecipe, Overhead
 
 
 class OrderRecipeSerializer(serializers.ModelSerializer):
@@ -18,13 +18,11 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
         exclude = ["order"]
         read_only_fields = ["id", "line_value", "order"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
 
     def get_fields(self):
         fields = super().get_fields()
@@ -38,12 +36,12 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        
+
         money_fields = ["line_cost_price", "line_value"]
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, self._currency))
+                representation[field] = str(Money(amount, self.currency))
 
         return representation
 
@@ -76,17 +74,15 @@ class OrderSerializer(serializers.ModelSerializer):
             "delivery_date": {"required": False, "allow_null": True},
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
 
     def get_total_with_tax(self, obj):
         total_with_tax = obj.total_value + obj.tax_amount
-        return str(Money(amount=total_with_tax, currency=self._currency))
+        return str(Money(amount=total_with_tax, currency=self.currency))
 
     def get_fields(self):
         fields = super().get_fields()
@@ -102,10 +98,10 @@ class OrderSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         representation["total_value"] = str(
-            Money(amount=instance.total_value, currency=self._currency)
+            Money(amount=instance.total_value, currency=self.currency)
         )
-        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=self._currency))
-        representation["profit"] = str(Money(amount=instance.profit, currency=self._currency))
+        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=self.currency))
+        representation["profit"] = str(Money(amount=instance.profit, currency=self.currency))
         representation["profit_percentage"] = str(instance.profit_percentage) + "%"
         representation["customer"] = instance.customer.name
         return representation
@@ -159,3 +155,28 @@ class OrderSerializer(serializers.ModelSerializer):
                 instance.save()
 
         return instance
+
+
+class OverheadSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        fields = "__all__"
+        model = Overhead
+        read_only_fields = ["id", "created_at", "updated_at", "created_by"]
+
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["yearly_cost"] = str(
+            Money(amount=instance.yearly_cost, currency=self.currency)
+        )
+        representation["monthly_cost"] = str(
+            Money(amount=instance.monthly_cost, currency=self.currency)
+        )
+        return representation
