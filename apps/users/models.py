@@ -154,6 +154,10 @@ class UserPreferences(BaseModel):
         default=Decimal(00.00),
         help_text="Tax rate as a percentage (e.g., 20.00 for 20%)"
     )
+    estimated_monthly_orders = models.PositiveIntegerField(
+        default=10,
+        help_text="Estimated number of orders per month for subscription purposes.",
+    )
 
 
     def clean(self):

@@ -20,7 +20,7 @@ class CreateSubscriptionView(APIView):
 
     def get(self, request, version):
         return Response({"detail": "Ready to create subscription."}, status=status.HTTP_200_OK)
-    
+
     @swagger_auto_schema(
         request_body=openapi.Schema(
             type="object",
@@ -44,6 +44,10 @@ class CreateSubscriptionView(APIView):
             tier_key = request.data.get('tier_key')
             price_id = settings.TIER_PLAN_MAPPING.get(tier_key)
 
+            if not price_id:
+                return Response({"error": "Invalid tier key provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+            customer_just_created = False
 
             if not user.stripe_customer_id:
                 # Create a new Stripe customer if not exists
@@ -52,32 +56,38 @@ class CreateSubscriptionView(APIView):
                     name=f"{user.first_name} {user.last_name}"
                 )
                 user.stripe_customer_id = customer.id
-                user.save()
-            
+                user.save(update_fields=['stripe_customer_id'])
+                customer_just_created = True
+
             # Check if user already has a subscription
             if hasattr(user, "subscriptions") and user.subscriptions.is_active and not user.subscriptions.is_cancelled:
                 return Response({"error": "User already has an active subscription."})
-            
-            checkout_session = stripe.checkout.Session.create(
-                customer=user.stripe_customer_id,
-                payment_method_types=['card'],
-                mode='subscription',
-                line_items=[{
-                    'price': price_id,
-                    'quantity': 1,
-                }],
 
-                success_url=f"{settings.DOMAIN_NAME}/subscriptions/success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.DOMAIN_NAME}/subscriptions/cancel",
-
-                metadata={
-                    'user_id': str(user.id),
+            session_args = {
+                "customer": user.stripe_customer_id,
+                "payment_method_types": ["card"],
+                "mode": "subscription",
+                "line_items": [
+                    {
+                        "price": price_id,
+                        "quantity": 1,
+                    }
+                ],
+                "success_url": f"{settings.DOMAIN_NAME}/success?session_id={{CHECKOUT_SESSION_ID}}",
+                "cancel_url": f"{settings.DOMAIN_NAME}/cancel",
+                "metadata": {
+                    "user_id": str(user.id),
                     "product_tier": tier_key,
                 }
-            )
-        
+            }
+
+            if customer_just_created:
+                session_args["subscription_data"] = {"trial_period_days": settings.TRIAL_PERIOD_DAYS}
+
+            checkout_session = stripe.checkout.Session.create(**session_args)
+
             return Response({"checkout_url": checkout_session.url}, status=status.HTTP_200_OK)
-        
+
         except stripe.StripeError as e:
             logger.error(f"Stripe error during subscription creation: {e.user_message}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

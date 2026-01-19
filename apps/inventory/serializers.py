@@ -76,14 +76,11 @@ class SupplierSerializer(serializers.ModelSerializer):
             )
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
-        self._symbol = get_currency_symbol(self._currency, locale="en_US")
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
 
     def get_products(self, obj):
         products_qs = (
@@ -122,7 +119,7 @@ class SupplierSerializer(serializers.ModelSerializer):
         representation["total_spent"] = str(
             Money(
                 instance.total_spent,
-                self._currency,
+                self.currency,
             )
         )
         return representation
@@ -149,15 +146,16 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
             "id",
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
-        self._symbol = get_currency_symbol(self._currency, locale="en_US")
-
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+    
+    @property
+    def symbol(self):
+        return get_currency_symbol(self.currency, locale="en_US")
+    
     def get_fields(self):
         fields = super().get_fields()
         user = self.context["request"].user
@@ -192,11 +190,11 @@ class InventoryHistorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        cost_price_money = Money(instance.cost_price, self._currency)
-        cost_per_unit_money = Money(instance.cost_per_unit, self._currency)
+        cost_price_money = Money(instance.cost_price, self.currency)
+        cost_per_unit_money = Money(instance.cost_per_unit, self.currency)
 
         representation["cost_price"] = str(cost_price_money)
-        representation["cost_per_unit"] = f"{self._symbol}{cost_per_unit_money.amount:.4f}"
+        representation["cost_per_unit"] = f"{self.symbol}{cost_per_unit_money.amount:.4f}"
 
         representation["quantity"] = (
             str(instance.quantity) + instance.inventory_item.unit
@@ -228,14 +226,15 @@ class InventorySerializer(serializers.ModelSerializer):
             "days_of_stock_on_hand",
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
-        self._symbol = get_currency_symbol(self._currency, locale="en_US")
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+    
+    @property
+    def symbol(self):
+        return get_currency_symbol(self.currency, locale="en_US")
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
@@ -273,11 +272,11 @@ class InventorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        total_money = Money(instance.total_value, self._currency)
-        cost_money = Money(instance.cost_per_unit, self._currency)
+        total_money = Money(instance.total_value, self.currency)
+        cost_money = Money(instance.cost_per_unit, self.currency)
 
-        representation["total_value"] = f"{self._symbol}{total_money.amount:.4f}"
-        representation["cost_per_unit"] = f"{self._symbol}{cost_money.amount:.4f}"
+        representation["total_value"] = f"{self.symbol}{total_money.amount:.4f}"
+        representation["cost_per_unit"] = f"{self.symbol}{cost_money.amount:.4f}"
 
         representation["quantity"] += representation["inventory_item"]["unit"]
         representation["reorder_level"] = (

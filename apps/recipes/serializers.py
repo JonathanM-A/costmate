@@ -104,14 +104,12 @@ class RecipeSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField(read_only=True)
     shareable_link = serializers.SerializerMethodField()
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
 
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
-        self._symbol = get_currency_symbol(self._currency, locale="en_US")
 
     def get_fields(self):
         fields = super().get_fields()
@@ -174,7 +172,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, self._currency))
+                representation[field] = str(Money(amount, self.currency))
         return representation
 
 
@@ -221,14 +219,11 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        request = self.context.get("request")
-        user = request.user.id if request and request.user else None
-
-        self._currency = get_user_preferrence_from_cache(user, "currency", "USD")
-        self._symbol = get_currency_symbol(self._currency, locale="en_US")
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -244,5 +239,5 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         for field in money_fields:
             if field in representation:
                 amount = representation[field]
-                representation[field] = str(Money(amount, self._currency))
+                representation[field] = str(Money(amount, self.currency))
         return representation

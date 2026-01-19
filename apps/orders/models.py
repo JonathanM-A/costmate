@@ -76,9 +76,9 @@ class Order(BaseModel):
             if total_cost_price > 0
             else Decimal(0.00)
         )
-        self.tax_amount = (self.total_value * Decimal(tax_rate) / Decimal(100)).quantize(
-            Decimal("0.01")
-        )
+        self.tax_amount = (
+            self.total_value * Decimal(tax_rate) / Decimal(100)
+        ).quantize(Decimal("0.01"))
 
     def save(self, *args, **kwargs):
         """
@@ -125,7 +125,7 @@ class OrderRecipe(models.Model):
         Calculate the total price for this order recipe based on the quantity and price per unit.
         """
         self.line_value = self.recipe.selling_price * self.quantity
-        self.line_cost_price = self.recipe.cost_price * self.quantity #type: ignore
+        self.line_cost_price = self.recipe.cost_price * self.quantity  # type: ignore
 
     def save(self, *args, **kwargs):
         """
@@ -144,3 +144,22 @@ class OrderRecipe(models.Model):
             inventory = ingredient.inventory_item.inventory.get(created_by=user)
             inventory.quantity -= ingredient.quantity * self.quantity
             inventory.save()
+
+
+class Overhead(BaseModel):
+    name = models.CharField(max_length=100, blank=False, unique=True)
+    monthly_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal(0.00))],
+    )
+    yearly_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal(0.00))],
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="overheads", blank=False
+    )
