@@ -34,11 +34,10 @@ services:
     image: certbot/certbot
     container_name: certbot
     volumes:
+      - ./certbot-etc:/etc/letsencrypt
       - /var/www/certbot:/var/lib/letsencrypt
-      - ./certbot-etc:etc/var/lib/letsencrypt
     entrypoint: /bin/sh
     command: -c "while true; do certbot renew --webroot -w /var/lib/letsencrypt/ --quiet; sleep 12h; done"
   
 volumes:
   media_volume:
-  certbot-etc:
