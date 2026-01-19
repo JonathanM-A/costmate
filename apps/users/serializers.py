@@ -25,7 +25,9 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_active",
-            "password"
+            "password",
+            "stripe_customer_id",
+            "staff_count",  
         )
 
 
