@@ -122,9 +122,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         return fields
 
     def get_shareable_link(self, obj):
-        request = self.context.get("request")
-        if request and obj.share_enabled:
-            return obj.get_shareable_link(request)
+        if obj.share_enabled:
+            return obj.get_shareable_link()
         return None
 
     class Meta:

@@ -86,10 +86,11 @@ class Recipe(BaseModel):
         self.share_token = uuid.uuid4()
         self.save()
 
-    def get_shareable_link(self, request):
+    def get_shareable_link(self):
+        from django.conf import settings
         if self.share_token is None:
             return None
-        return request.build_absolute_uri(f"api/v1/shared-recipe/{self.share_token}/")
+        return f"{settings.DOMAIN_NAME}/api/v1/shared-recipe/{self.share_token}/"
 
     class Meta:  # type: ignore
         unique_together = ["name", "created_by"]
