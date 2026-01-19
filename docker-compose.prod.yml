@@ -37,7 +37,14 @@ services:
       - ./certbot-etc:/etc/letsencrypt
       - /var/www/certbot:/var/lib/letsencrypt
     entrypoint: /bin/sh
-    command: -c "trap exit TERM; while :; do certbot renew --webroot -w /var/lib/letsencrypt --deploy-hook 'kill -HUP 1' --quiet; sleep 12h & wait $!; done"
+    command:
+      - -c
+      - |
+        trap exit TERM
+        while :; do
+          certbot renew --webroot -w /var/lib/letsencrypt --quiet
+          sleep 12h & wait $$!
+        done
   
 volumes:
   media_volume:
