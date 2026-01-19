@@ -91,7 +91,7 @@ class RecipeViewset(ModelViewSet):
         recipe.regenerate_share_token()
         recipe.save()
         return Response(
-            {"shareable_link": recipe.get_shareable_link(request)},
+            {"shareable_link": recipe.get_shareable_link()},
             status=status.HTTP_200_OK,
         )
     
