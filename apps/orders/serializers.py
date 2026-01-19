@@ -9,14 +9,14 @@ from .models import Order, Customer, Recipe, OrderRecipe, Overhead
 
 class OrderRecipeSerializer(serializers.ModelSerializer):
     recipe_id = serializers.PrimaryKeyRelatedField(
-        queryset=Recipe.objects.all(), write_only=True
+        queryset=Recipe.objects.all(), write_only=True, source="recipe"
     )
-    recipe = serializers.StringRelatedField(read_only=True)
+    recipe_name = serializers.StringRelatedField(read_only=True, source="recipe")
 
     class Meta:
         model = OrderRecipe
         exclude = ["order"]
-        read_only_fields = ["id", "line_value", "order"]
+        read_only_fields = ["id", "line_cost", "order"]
 
     @property
     def currency(self):
@@ -37,11 +37,8 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        money_fields = ["line_cost_price", "line_value"]
-        for field in money_fields:
-            if field in representation:
-                amount = representation[field]
-                representation[field] = str(Money(amount, self.currency))
+        if "line_cost" in representation:
+            representation["line_cost"] = str(Money(representation["line_cost"], self.currency))
 
         return representation
 
@@ -53,7 +50,6 @@ class OrderSerializer(serializers.ModelSerializer):
     order_recipes = OrderRecipeSerializer(many=True, read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     delivery_date = UserFormattedDate(allow_null=True, required=False)
-    total_with_tax = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -65,13 +61,21 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_by",
             "status",
             "order_no",
-            "total_value",
-            "profit",
-            "profit_percentage",
-            "tax_amount",
+            "subtotal",
+            "total_cost",
+            "order_price",
+            "final_price",
+            "vat_amount",
+            "suggested_price",
         ]
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
+            "overhead": {"required": False},
+            "packaging": {"required": False},
+            "discount": {"required": False},
+            "discount_is_percentage": {"required": False},
+            "profit_margin": {"required": False},
+            "preferred_final_price": {"required": False, "allow_null": True},
         }
 
     @property
@@ -79,10 +83,6 @@ class OrderSerializer(serializers.ModelSerializer):
         return get_user_preferrence_from_cache(
             self.context["request"].user.id, "currency", "USD"
         )
-
-    def get_total_with_tax(self, obj):
-        total_with_tax = obj.total_value + obj.tax_amount
-        return str(Money(amount=total_with_tax, currency=self.currency))
 
     def get_fields(self):
         fields = super().get_fields()
@@ -97,18 +97,35 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        representation["total_value"] = str(
-            Money(amount=instance.total_value, currency=self.currency)
-        )
-        representation["tax_amount"] = str(Money(amount=instance.tax_amount, currency=self.currency))
-        representation["profit"] = str(Money(amount=instance.profit, currency=self.currency))
-        representation["profit_percentage"] = str(instance.profit_percentage) + "%"
+        money_fields = [
+            "subtotal",
+            "overhead",
+            "packaging",
+            "total_cost",
+            "order_price",
+            "discount",
+            "final_price",
+            "vat_amount",
+            "suggested_price",
+            "preferred_final_price",
+        ]
+
+        for field in money_fields:
+            if field in representation and representation[field] is not None:
+                representation[field] = str(Money(amount=representation[field], currency=self.currency))
+
+        representation["profit_margin"] = str(instance.profit_margin) + "%"
+        representation["vat_rate"] = str(instance.vat_rate) + "%"
         representation["customer"] = instance.customer.name
         return representation
 
     def create(self, validated_data):
+        from ..notifications.models import Notification
+        from django.contrib.contenttypes.models import ContentType
+
         recipes = validated_data.pop("recipes")
-        validated_data["created_by"] = self.context["request"].user
+        user = self.context["request"].user
+        validated_data["created_by"] = user
 
         with transaction.atomic():
             order_instance = Order.objects.create(**validated_data)
@@ -123,6 +140,22 @@ class OrderSerializer(serializers.ModelSerializer):
             ]
             OrderRecipe.objects.bulk_create(order_recipes)
             order_instance.save()
+
+            # Check inventory availability and create notification if insufficient
+            is_available, insufficient_items = order_instance.check_inventory_availability()
+            if not is_available:
+                message = f"Order {order_instance.order_no} created but insufficient inventory for:\n"
+                for item in insufficient_items:
+                    message += f"- {item['recipe']}: {item['ingredient']} (Need: {item['needed']}{item['unit']}, Available: {item['available']}{item['unit']})\n"
+
+                Notification.objects.create(
+                    user=user,
+                    notification_type="INSUFFICIENT_INVENTORY",
+                    message=message,
+                    content_type=ContentType.objects.get_for_model(Order),
+                    object_id=order_instance.id,
+                )
+
             return order_instance
 
     def update(self, instance, validated_data):
