@@ -22,10 +22,6 @@ class RecipeService:
 
         # Set defaults
         validated_data.setdefault(
-            "profit_margin",
-            get_user_preferrence_from_cache(user.id, "profit_margin", 30.00),
-        )
-        validated_data.setdefault(
             "labour_rate",
             get_user_preferrence_from_cache(user.id, "labour_rate", 20.00),
         )
@@ -36,10 +32,6 @@ class RecipeService:
 
             # Creating RecipeInventory
             recipe_inventories = cls._bulk_create_ingredients(recipe, ingredients)
-
-            RecipeInventory.objects.filter()
-
-            item_ids = set()
 
             item_ids = {ri.inventory_item for ri in recipe_inventories}
 
@@ -164,19 +156,5 @@ class RecipeService:
             )
 
             Recipe.objects.filter(id__in=affected_recipe_ids).update(
-                cost_price=(
-                    F("inventory_items_cost")
-                    + F("labour_cost")
-                    + F("packaging_cost")
-                    + F("overhead_cost")
-                ),
-                selling_price=(
-                    (
-                        F("inventory_items_cost")
-                        + F("labour_cost")
-                        + F("packaging_cost")
-                        + F("overhead_cost")
-                    )
-                    * (1 + (F("profit_margin") / Decimal("100.00")))
-                ),
+                total_cost=F("inventory_items_cost") + F("labour_cost")
             )

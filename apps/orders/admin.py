@@ -5,7 +5,7 @@ from .models import Order, OrderRecipe
 class RecipeInline(admin.TabularInline):
     model = OrderRecipe
     extra = 1
-    readonly_fields = ("line_value",)
+    readonly_fields = ("line_cost",)
 
 
 @admin.register(Order)
@@ -13,8 +13,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "order_no",
         "customer",
-        "total_value",
-        "tax_amount",
+        "final_price",
+        "profit_margin",
         "status",
         "delivery_date",
         "created_at",
@@ -26,10 +26,12 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = (
         "created_at",
         "updated_at",
-        "total_value",
-        "tax_amount",
-        "profit",
-        "profit_percentage",
+        "subtotal",
+        "total_cost",
+        "order_price",
+        "final_price",
+        "vat_amount",
+        "suggested_price",
         "order_no",
     )
 
@@ -41,9 +43,21 @@ class OrderAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Financial Information",
+            "Cost Breakdown",
             {
-                "fields": ("total_value", "tax_amount", "profit", "profit_percentage"),
+                "fields": ("subtotal", "overhead", "packaging", "total_cost"),
+            },
+        ),
+        (
+            "Pricing",
+            {
+                "fields": ("profit_margin", "order_price", "discount", "discount_is_percentage", "final_price"),
+            },
+        ),
+        (
+            "Tax & Final",
+            {
+                "fields": ("vat_rate", "vat_amount", "suggested_price", "preferred_final_price"),
             },
         ),
         (
@@ -58,15 +72,15 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderRecipe)
 class OrderRecipeAdmin(admin.ModelAdmin):
-    list_display = ("order__order_no", "recipe", "quantity", "line_value")
+    list_display = ("order__order_no", "recipe", "quantity", "line_cost")
     search_fields = ("order__order_no", "recipe__name")
-    readonly_fields = ("line_value",)
+    readonly_fields = ("line_cost",)
 
     fieldsets = (
         (
             "Order Recipe Information",
             {
-                "fields": ("order", "recipe", "quantity", "line_value"),
+                "fields": ("order", "recipe", "quantity", "line_cost"),
             },
         ),
     )

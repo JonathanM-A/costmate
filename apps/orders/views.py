@@ -89,19 +89,19 @@ class OrderViewSet(ModelViewSet):
                     delivery_date=date.today(),
                 ),
             ),
-            total_amount=Sum("total_value", filter=Q(status="completed")),
-            total_profit=Sum("profit", filter=Q(status="completed")),
+            total_revenue=Sum("final_price", filter=Q(status="completed")),
+            total_cost=Sum("total_cost", filter=Q(status="completed")),
         )
 
         currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
-        order_stats["total_amount"] = str(
-            Money(order_stats["total_amount"] or 0, currency)
-        )
+        total_revenue = order_stats["total_revenue"] or 0
+        total_cost = order_stats["total_cost"] or 0
+        total_profit = total_revenue - total_cost
 
-        order_stats["total_profit"] = str(
-            Money(order_stats["total_profit"] or 0, currency)
-        )
+        order_stats["total_revenue"] = str(Money(total_revenue, currency))
+        order_stats["total_cost"] = str(Money(total_cost, currency))
+        order_stats["total_profit"] = str(Money(total_profit, currency))
 
         result.data = {
             "orders": result.data,
@@ -128,6 +128,22 @@ class OrderViewSet(ModelViewSet):
                 return Response(
                     {"detail": "Cannot complete a cancelled order."}, status=400
                 )
+
+            # Check inventory availability before completing order
+            is_available, insufficient_items = order.check_inventory_availability()
+            if not is_available:
+                error_message = "Cannot complete order. Insufficient inventory:\n"
+                for item in insufficient_items:
+                    error_message += f"- {item['recipe']}: {item['ingredient']} (Need: {item['needed']}{item['unit']}, Available: {item['available']}{item['unit']})\n"
+                return Response(
+                    {"detail": error_message, "insufficient_items": insufficient_items},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update inventory for each order recipe
+            for order_recipe in order.order_recipes.all():
+                order_recipe.update_inventory(user)
+
         elif new_status == "cancelled":
             if order.status == "completed":
                 return Response(
