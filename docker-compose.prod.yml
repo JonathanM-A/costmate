@@ -42,4 +42,3 @@ services:
 volumes:
   media_volume:
   certbot-etc:
-  certbot-var:
