@@ -191,11 +191,6 @@ class OverheadViewSet(ModelViewSet):
         context["request"] = self.request
         return context
 
-    def retrieve(self, request, *args, **kwargs):
-        return Response(
-            {"detail": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
-
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
 
