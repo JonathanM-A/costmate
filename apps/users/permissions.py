@@ -13,23 +13,21 @@ class IsSubscriptionActive(permissions.BasePermission):
     """
     Custom permission to only allow access to users with an active subscription.
     """
-    
-    message = "Your subscription is inactive. Please renew to perform this action."
 
     def has_permission(self, request, view):
         """
         Allows POST/PUT/PATCH/DELETE requests only if user has an active subscription.
         """
-
         if not request.user or not request.user.is_authenticated:
             return False
-        
+
         if not getattr(settings, 'SUBSCRIPTION_LIVE', False):
             return True
-        
+
         if request.method in permissions.SAFE_METHODS:
             return True
-        
-        if hasattr(request.user, 'subscription') and request.user.subscription.is_active:
+
+        subscription = getattr(request.user, 'subscription', None)
+        if subscription and getattr(subscription, 'is_active', False):
             return True
         raise SubscriptionException()
