@@ -40,6 +40,12 @@ class Order(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    delivery_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal(0.00),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     total_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -118,11 +124,11 @@ class Order(BaseModel):
 
     def calculate_costs(self):
         """
-        Calculate all order costs based on recipes, overhead, packaging, profit margin, discount and VAT.
+        Calculate all order costs based on recipes, overhead, packaging, delivery, profit margin, discount and VAT.
 
         Calculation flow:
         1. Subtotal = sum of (recipe.total_cost * quantity) for all order recipes
-        2. Total Cost = Subtotal + Overhead + Packaging
+        2. Total Cost = Subtotal + Overhead + Packaging + Delivery Cost
         3. Order Price = Total Cost * (1 + Profit Margin / 100)
         4. Discount Amount = Discount value (or Order Price * Discount / 100 if percentage)
         5. Final Price = Order Price - Discount Amount
@@ -134,8 +140,8 @@ class Order(BaseModel):
             order_recipe.line_cost for order_recipe in self.order_recipes.all()  # type: ignore
         )
 
-        # Calculate total cost (subtotal + overhead + packaging)
-        self.total_cost = self.subtotal + self.overhead + self.packaging
+        # Calculate total cost (subtotal + overhead + packaging + delivery)
+        self.total_cost = self.subtotal + self.overhead + self.packaging + self.delivery_cost
 
         # Calculate order price with profit margin
         profit_multiplier = Decimal(1) + (self.profit_margin / Decimal(100))
@@ -262,7 +268,7 @@ class OrderRecipe(models.Model):
 
 
 class Overhead(BaseModel):
-    name = models.CharField(max_length=100, blank=False, unique=True)
+    name = models.CharField(max_length=100, blank=False)
     monthly_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -278,3 +284,6 @@ class Overhead(BaseModel):
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="overheads", blank=False
     )
+
+    class Meta:
+        unique_together = ("name", "created_by")
