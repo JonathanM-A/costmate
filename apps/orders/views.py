@@ -171,7 +171,7 @@ class OrderViewSet(ModelViewSet):
 class OverheadViewSet(ModelViewSet):
     queryset = Overhead.objects.none()
     serializer_class = OverheadSerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     http_method_names = ["get", "post", "put", "delete"]
     search_fields = ["name"]
 
