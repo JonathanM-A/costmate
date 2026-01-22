@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomerViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     serializer_class = CustomerSerializer
     queryset = Customer.objects.none()
     http_method_names = [m for m in ModelViewSet.http_method_names if m != "put"]

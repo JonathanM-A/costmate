@@ -22,7 +22,7 @@ logger = logging.Logger(__name__)
 
 
 class RecipeViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     queryset = Recipe.objects.none()
     serializer_class = RecipeSerializer
     http_method_names = ["get", "post", "patch", "delete"]
@@ -129,7 +129,7 @@ class SharedRecipeViewset(ReadOnlyModelViewSet):
 
 
 class RecipeCategoryViewset(ModelViewSet):
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     queryset = RecipeCategory.objects.none()
     serializer_class = RecipeCategorySerializer
     http_method_names = ["get", "post", "patch", "delete"]

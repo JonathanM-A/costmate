@@ -99,7 +99,7 @@ class InventoryItemView(ModelViewSet):
 class SupplierViewset(ModelViewSet):
     queryset = Supplier.objects.none()
     serializer_class = SupplierSerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     search_fields = ["name", "contact"]
 
     def get_queryset(self):  # type: ignore
@@ -209,7 +209,7 @@ class SupplierViewset(ModelViewSet):
 class InventoryView(ModelViewSet):
     queryset = Inventory.objects.none()
     serializer_class = InventorySerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     http_method_names = ["get", "delete", "post", "patch", "put"]
     search_fields = ["inventory_item__name"]
     filterset_class = InventoryFilter
@@ -466,7 +466,7 @@ class InventoryView(ModelViewSet):
 class InventoryHistoryView(ListAPIView):
     queryset = InventoryHistory.objects.none()
     serializer_class = InventoryHistorySerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     filterset_fields = [
         "created_at",
         "incident_date",

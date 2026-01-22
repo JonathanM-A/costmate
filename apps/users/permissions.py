@@ -17,9 +17,12 @@ class IsSubscriptionActive(permissions.BasePermission):
     def has_permission(self, request, view):
         """
         Allows POST/PUT/PATCH/DELETE requests only if user has an active subscription.
+        If SUBSCRIPTION_LIVE is False, only checks authentication.
         """
         if not request.user or not request.user.is_authenticated:
             return False
+        
+        print("SUBSCRIPTION_LIVE:", getattr(settings, 'SUBSCRIPTION_LIVE', False))
 
         if not getattr(settings, 'SUBSCRIPTION_LIVE', False):
             return True
