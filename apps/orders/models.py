@@ -34,12 +34,14 @@ class Order(BaseModel):
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    overhead_is_percentage = models.BooleanField(default=False)
     packaging = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    packaging_is_percentage = models.BooleanField(default=False)
     delivery_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -128,20 +130,34 @@ class Order(BaseModel):
 
         Calculation flow:
         1. Subtotal = sum of (recipe.total_cost * quantity) for all order recipes
-        2. Total Cost = Subtotal + Overhead + Packaging + Delivery Cost
-        3. Order Price = Total Cost * (1 + Profit Margin / 100)
-        4. Discount Amount = Discount value (or Order Price * Discount / 100 if percentage)
-        5. Final Price = Order Price - Discount Amount
-        6. VAT Amount = Final Price * VAT Rate / 100
-        7. Suggested Price = Final Price + VAT Amount
+        2. Overhead Amount = Overhead value (or Subtotal * Overhead / 100 if percentage)
+        3. Packaging Amount = Packaging value (or Subtotal * Packaging / 100 if percentage)
+        4. Total Cost = Subtotal + Overhead Amount + Packaging Amount + Delivery Cost
+        5. Order Price = Total Cost * (1 + Profit Margin / 100)
+        6. Discount Amount = Discount value (or Order Price * Discount / 100 if percentage)
+        7. Final Price = Order Price - Discount Amount
+        8. VAT Amount = Final Price * VAT Rate / 100
+        9. Suggested Price = Final Price + VAT Amount
         """
         # Calculate subtotal from recipe costs
         self.subtotal = sum(
             order_recipe.line_cost for order_recipe in self.order_recipes.all()  # type: ignore
         )
 
+        # Calculate overhead amount
+        if self.overhead_is_percentage:
+            overhead_amount = self.subtotal * (self.overhead / Decimal(100))
+        else:
+            overhead_amount = self.overhead
+
+        # Calculate packaging amount
+        if self.packaging_is_percentage:
+            packaging_amount = self.subtotal * (self.packaging / Decimal(100))
+        else:
+            packaging_amount = self.packaging
+
         # Calculate total cost (subtotal + overhead + packaging + delivery)
-        self.total_cost = self.subtotal + self.overhead + self.packaging + self.delivery_cost
+        self.total_cost = self.subtotal + overhead_amount + packaging_amount + self.delivery_cost
 
         # Calculate order price with profit margin
         profit_multiplier = Decimal(1) + (self.profit_margin / Decimal(100))
