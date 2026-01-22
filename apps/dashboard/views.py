@@ -4,7 +4,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import F, Sum, Count, Aggregate, TextField
+from django.db.models import F, Sum, Count, Aggregate, TextField, Case, When
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -35,7 +35,7 @@ class DashboardView(APIView):
     Optional filtering by date range using start_date and end_date query parameters.
     """
 
-    permission_classes=[IsAuthenticated, IsSubscriptionActive]
+    permission_classes=[IsSubscriptionActive]
 
     @swagger_auto_schema(
         operation_summary="Get dashboard data",
@@ -106,12 +106,21 @@ class DashboardView(APIView):
             created_by=user, status="completed"
         ).prefetch_related("order_recipes")
 
+        # Use preferred_final_price if set, otherwise use suggested_price
+        effective_price = Case(
+            When(preferred_final_price__isnull=False, then=F("preferred_final_price")),
+            default=F("suggested_price"),
+        )
+        profit_expr = effective_price - F("total_cost")
+
         order_stats = completed_orders.aggregate(
             total_completed=Count("id"),
-            total_cost=MoneyAggregate("total_value", currency=currency),
-            total_profit=MoneyAggregate("profit", currency=currency),
-            total_profit_percent=Sum("profit") / Count("id"),
+            agg_total_cost=MoneyAggregate(effective_price, currency=currency),
+            total_profit=MoneyAggregate(profit_expr, currency=currency),
+            total_profit_percent=Sum(profit_expr) / Count("id"),
         )
+        # Rename to preserve API response field name
+        order_stats["total_cost"] = order_stats.pop("agg_total_cost")
 
         if start_date:
             completed_orders = completed_orders.filter(
@@ -122,20 +131,31 @@ class DashboardView(APIView):
                 created_at__lte=end_date
             )
 
-        chart_data = completed_orders.values_list(
-            "created_at", "total_value", "profit"
-        )  # List of (created_at, total_value, profit) tuples
+        chart_data = completed_orders.annotate(
+            effective_price=effective_price,
+            profit=profit_expr,
+        ).values_list(
+            "created_at", "effective_price", "profit"
+        )  # List of (created_at, effective_price, profit) tuples
 
         # fetch non-filterable fields
 
+        # Get ingredient and labour costs from OrderRecipe -> Recipe
         recipe_stats = OrderRecipe.objects.filter(order__in=completed_orders).aggregate(
             ingredient_cost=MoneyAggregate(
-                "recipe__inventory_items_cost", currency=currency
+                F("recipe__inventory_items_cost") * F("quantity"), currency=currency
             ),
-            overhead_cost=MoneyAggregate("recipe__overhead_cost", currency=currency),
-            labour_cost=MoneyAggregate("recipe__labour_cost", currency=currency),
-            packaging_cost=MoneyAggregate("recipe__packaging_cost", currency=currency),
+            labour_cost=MoneyAggregate(
+                F("recipe__labour_cost") * F("quantity"), currency=currency
+            ),
         )
+        # Get overhead and packaging costs from Order model
+        order_cost_stats = completed_orders.aggregate(
+            agg_overhead_cost=MoneyAggregate("overhead", currency=currency),
+            agg_packaging_cost=MoneyAggregate("packaging", currency=currency),
+        )
+        recipe_stats["overhead_cost"] = order_cost_stats["agg_overhead_cost"]
+        recipe_stats["packaging_cost"] = order_cost_stats["agg_packaging_cost"]
 
         # Combine results
         results = {**order_stats, **recipe_stats}
