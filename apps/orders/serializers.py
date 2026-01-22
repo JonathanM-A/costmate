@@ -71,7 +71,9 @@ class OrderSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "delivery_date": {"required": False, "allow_null": True},
             "overhead": {"required": False},
+            "overhead_is_percentage": {"required": False},
             "packaging": {"required": False},
+            "packaging_is_percentage": {"required": False},
             "discount": {"required": False},
             "discount_is_percentage": {"required": False},
             "profit_margin": {"required": False},

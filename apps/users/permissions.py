@@ -32,4 +32,4 @@ class IsSubscriptionActive(permissions.BasePermission):
         
         if hasattr(request.user, 'subscription') and request.user.subscription.is_active:
             return True
-        return SubscriptionException()
+        raise SubscriptionException()
