@@ -12,4 +12,5 @@ urlpatterns = [
     path("", include("apps.analytics.urls")),
     path("subscription/", include("apps.subscriptions.urls")),
     path("", include("apps.health.urls")),
+    path("", include("apps.feedback.urls")),
 ]
