@@ -30,7 +30,7 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
         ("Permissions", {"fields": ("is_superuser",)}),
-        ("Stripe", {"fields": ("stripe_customer_id",)}),
+        ("Stripe", {"fields": ("stripe_customer_id", "has_used_free_trial")}),
     )
 
     add_fieldsets = (
