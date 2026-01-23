@@ -9,7 +9,7 @@ class Customer(BaseModel):
     
     first_name = models.CharField(max_length=50, blank=False)
     last_name = models.CharField(max_length=50, blank=False)
-    contact = models.CharField(max_length=15, blank=False)
+    contact = models.CharField(max_length=15, blank=True, null=True)
     email = models.EmailField(null=True, blank=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     created_by = models.ForeignKey(
