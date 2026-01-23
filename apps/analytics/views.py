@@ -128,22 +128,36 @@ class AnalyticsView(APIView):
             created_at__lte=end_date,
         ).prefetch_related("order_recipes")
 
+        # Use preferred_final_price if set, otherwise use suggested_price
+        effective_price = Case(
+            When(preferred_final_price__isnull=False, then=F("preferred_final_price")),
+            default=F("suggested_price"),
+        )
+        profit_expr = effective_price - F("total_cost")
+
         if completed_orders.exists():
             order_stats = completed_orders.aggregate(
                 total_orders=Count("id"),
-                total_amount_ordered=MoneyAggregate("total_value", currency=currency),
-                total_profit=MoneyAggregate("profit", currency=currency),
+                total_amount_ordered=MoneyAggregate(effective_price, currency=currency),
+                total_profit=MoneyAggregate(profit_expr, currency=currency),
                 total_customers=Count("customer", distinct=True),
             )
 
             # List of (created_at, profit) tuples
-            profit_stats = completed_orders.values_list("created_at", "profit")
+            profit_stats = completed_orders.annotate(
+                calculated_profit=profit_expr,
+            ).values_list("created_at", "calculated_profit")
 
             total_order_revenue = (
-                completed_orders.aggregate(total_revenue=Sum("total_value"))[
+                completed_orders.aggregate(total_revenue=Sum(effective_price))[
                     "total_revenue"
                 ]
                 or 0
+            )
+
+            # Calculate line revenue as: line_cost * (1 + profit_margin / 100)
+            line_revenue_expr = F("order_recipes__line_cost") * (
+                Value(1) + F("profit_margin") / Value(100)
             )
 
             revenue_by_recipe_category = (
@@ -153,10 +167,10 @@ class AnalyticsView(APIView):
                 .values("category_name")
                 .annotate(
                     # numeric sum used for calculation and ordering
-                    total_revenue_amount=Sum("order_recipes__line_value"),
+                    total_revenue_amount=Sum(line_revenue_expr),
                     # formatted money representation for UI
                     total_revenue=MoneyAggregate(
-                        "order_recipes__line_value",
+                        line_revenue_expr,
                         currency=currency,
                     ),
                     # percentage of total_order_revenue; guard against divide-by-zero
@@ -180,10 +194,10 @@ class AnalyticsView(APIView):
                 completed_orders.values("order_recipes__recipe__name")
                 .annotate(
                     total_quantity_sold=Sum("order_recipes__quantity"),
-                    total_revenue=MoneyAggregate("order_recipes__line_value", currency=currency),
-                    profit_margin=Avg("order_recipes__recipe__profit_margin"),
+                    total_revenue=MoneyAggregate(line_revenue_expr, currency=currency),
+                    profit_margin=Avg("profit_margin"),
                 )
-                .order_by("-total_revenue")[:5]
+                .order_by("-total_quantity_sold")[:5]
             )
         else:
             order_stats = {
