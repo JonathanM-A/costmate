@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def update_user_subscription(stripe_customer_id, **kwargs):
+def update_user_subscription(stripe_customer_id, mark_trial_used=False, **kwargs):
     """Update or create a Subscription record for the user."""
 
     try:
@@ -24,7 +24,11 @@ def update_user_subscription(stripe_customer_id, **kwargs):
         logger.info(f"User with Stripe Customer ID {stripe_customer_id} does not exist.")
         return
 
-    subscription, created =Subscription.objects.update_or_create(user=user, defaults=kwargs)
+    if mark_trial_used and not user.has_used_free_trial:
+        user.has_used_free_trial = True
+        user.save(update_fields=['has_used_free_trial'])
+
+    subscription, created = Subscription.objects.update_or_create(user=user, defaults=kwargs)
     logger.info(
         f"Subscription created: {created}"
     )
@@ -72,8 +76,12 @@ def stripe_webhook(request, version):
                     product_tier = k
                     break
             
+            # Check if this subscription has a trial period
+            has_trial = session.get("trial_start") is not None
+
             update_user_subscription(
                 stripe_customer_id=customer_id,
+                mark_trial_used=has_trial,
                 subscription_code=subscription_id,
                 tier=product_tier,
                 current_sub_start=current_sub_start,
