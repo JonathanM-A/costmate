@@ -199,9 +199,9 @@ class OverheadViewSet(ModelViewSet):
         currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
         qs = self.get_queryset()
-        total_value = qs.aggregate(total=Sum("yearly_cost"))["total"] or 0
+        total_monthly_value = qs.aggregate(total=Sum("monthly_cost"))["total"] or 0
         estimated_overhead_per_order = (
-            (total_value / estimated_monthly_orders)
+            (total_monthly_value / estimated_monthly_orders)
             if estimated_monthly_orders > 0
             else 0
         )
@@ -217,7 +217,7 @@ class OverheadViewSet(ModelViewSet):
             "estimated_monthly_orders": estimated_monthly_orders,
             "total_yearly_overhead": str(
                 Money(
-                    total_value,
+                    total_monthly_value * 12,
                     currency,
                 )
             ),
