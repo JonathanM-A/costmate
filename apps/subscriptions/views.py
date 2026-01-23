@@ -81,10 +81,8 @@ class CreateSubscriptionView(APIView):
                 }
             }
 
-            if customer_just_created:
+            if customer_just_created and not user.has_used_free_trial:
                 session_args["subscription_data"] = {"trial_period_days": settings.TRIAL_PERIOD_DAYS}
-                user.has_used_free_trial = True
-                user.save(update_fields=['has_used_free_trial'])
 
             checkout_session = stripe.checkout.Session.create(**session_args)
 
