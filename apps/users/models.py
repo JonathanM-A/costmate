@@ -79,6 +79,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         help_text="Designates whether the user can log into this admin site.",
     )
     stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
+    has_used_free_trial = models.BooleanField(default=False)
 
     objects = UserManager()  # type: ignore
 

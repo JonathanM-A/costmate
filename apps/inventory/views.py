@@ -1,7 +1,5 @@
 from datetime import datetime
 from djmoney.money import Money
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from decimal import Decimal
 from django.db.models import (
     Q,
@@ -44,7 +42,7 @@ logger = logging.Logger(__name__)
 class InventoryUnitView(ModelViewSet):
     queryset = InventoryUnit.objects.none()
     serializer_class = InventoryUnitSerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     http_method_names = ["get", "post"]
     search_fields = ["name", "unit_symbol"]
 
@@ -69,7 +67,7 @@ class InventoryItemView(ModelViewSet):
     """
     queryset = InventoryItem.objects.none()
     serializer_class = InventoryItemSerializer
-    permission_classes = [IsAuthenticated, IsSubscriptionActive]
+    permission_classes = [IsSubscriptionActive]
     http_method_names = ["get", "post", "patch"]
     search_fields = ["name"]
 
