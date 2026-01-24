@@ -1,0 +1,21 @@
+Hello {{ user_name }},
+
+Your free trial of COSTNAV will end on {{ trial_end_date }}.
+
+To continue using all features without interruption, please add a payment method:
+{{ billing_url }}
+
+What happens next?
+If no payment method is added, your subscription will be paused and you'll lose access to premium features.
+
+Why continue with COSTNAV?
+- Accurate product costing calculations
+- Inventory management and tracking
+- Detailed reports and analytics
+- Avoid hidden losses in your pricing
+
+If you have any questions about your subscription, please contact us at support@costnav.com
+
+--
+COSTNAV - Your Costing Companion
+A simple costing calculator that shows you exactly what your products cost so you can price accurately and avoid hidden losses.

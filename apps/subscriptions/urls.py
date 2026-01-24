@@ -4,7 +4,8 @@ from .views import (
     CancelSubscriptionView,
     ChangeSubscriptionView,
     SubscriptionDetailsView,
-    VerifySubscriptionView
+    VerifySubscriptionView,
+    AddPaymentMethodView,
 )
 from .webhook import stripe_webhook
 
@@ -16,5 +17,6 @@ urlpatterns = [
     path("change/", ChangeSubscriptionView.as_view(), name="change-subscription"),
     path("details/", SubscriptionDetailsView.as_view(), name="subscription-details"),
     path("verify/", VerifySubscriptionView.as_view(), name="verify-subscription"),
+    path("add-payment-method/", AddPaymentMethodView.as_view(), name="add-payment-method"),
     path("webhook/", stripe_webhook, name="stripe-webhook"),
 ]
