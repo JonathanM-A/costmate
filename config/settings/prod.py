@@ -499,6 +499,7 @@ CORS_ALLOWED_HEADERS = [
 ]
 CORS_EXPOSE_HEADERS = [
     "Content-Range",
+    "X-Unread-Notifications",
 ]
 CORS_MAX_AGE = 86400  # 1 day
 
