@@ -67,6 +67,7 @@ class CreateSubscriptionView(APIView):
                 "customer": user.stripe_customer_id,
                 "payment_method_types": ["card"],
                 "mode": "subscription",
+                "payment_method_collection": "if_required",
                 "line_items": [
                     {
                         "price": price_id,
@@ -254,3 +255,47 @@ class VerifySubscriptionView(APIView):
                 return Response({"status": "processing"}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": f"Invalid session {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AddPaymentMethodView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Add payment method",
+        operation_description="Creates a Stripe Checkout session in setup mode to collect payment details for trial users.",
+        responses={
+            200: openapi.Response("Checkout URL", openapi.Schema(type="string")),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+        }
+    )
+    def post(self, request, version):
+        """Create a setup mode checkout session to collect payment details."""
+        try:
+            user = request.user
+
+            if not user.stripe_customer_id:
+                return Response(
+                    {"error": "No Stripe customer found. Please start a subscription first."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            checkout_session = stripe.checkout.Session.create(
+                customer=user.stripe_customer_id,
+                mode="setup",
+                payment_method_types=["card"],
+                success_url=f"{settings.DOMAIN_NAME}/payment-method-added",
+                cancel_url=f"{settings.DOMAIN_NAME}/settings",
+                metadata={
+                    "user_id": str(user.id),
+                }
+            )
+
+            return Response({"checkout_url": checkout_session.url}, status=status.HTTP_200_OK)
+
+        except stripe.StripeError as e:
+            logger.error(f"Stripe error during payment method setup: {e.user_message}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error during payment method setup: {str(e)}")
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

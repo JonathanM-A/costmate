@@ -2,12 +2,14 @@ import stripe
 from datetime import datetime, timezone
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.http import HttpResponse, JsonResponse
+from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework import status
 from .models import Subscription
-from .tasks import deactivate_expired_subscriptions
+from apps.notifications.models import Notification
 import logging
 
 User = get_user_model()
@@ -181,5 +183,49 @@ def stripe_webhook(request, version):
 
         except Exception as e:
             logger.error(f"Error processing subscription update: {str(e)}")
+
+    elif event["type"] == "customer.subscription.trial_will_end":
+        session = event["data"]["object"]
+        customer_id = session.get("customer")
+        trial_end = session.get("trial_end")
+
+        try:
+            user = User.objects.get(stripe_customer_id=customer_id)
+            trial_end_date = datetime.fromtimestamp(trial_end, tz=timezone.utc)
+            formatted_date = trial_end_date.strftime("%B %d, %Y")
+            add_payment_url = f"{settings.DOMAIN_NAME}/add-payment-method"
+
+            # Create notification
+            Notification.objects.create(
+                user=user,
+                notification_type="TRIAL_ENDING",
+                message=f"Your free trial ends on {formatted_date}. Add a payment method to continue using COSTNAV.",
+                target_url=add_payment_url,
+            )
+            logger.info(f"Trial ending notification created for user {user.id}")
+
+            # Send email
+            context = {
+                "user_name": user.first_name or user.email,
+                "trial_end_date": formatted_date,
+                "billing_url": add_payment_url,
+            }
+            html_message = render_to_string("subscriptions/email/trial_ending.html", context)
+            plain_message = render_to_string("subscriptions/email/trial_ending.txt", context)
+
+            send_mail(
+                subject="Your COSTNAV Trial is Ending Soon",
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            logger.info(f"Trial ending email sent to {user.email}")
+
+        except User.DoesNotExist:
+            logger.error(f"User with Stripe Customer ID {customer_id} not found for trial_will_end event")
+        except Exception as e:
+            logger.error(f"Error processing trial_will_end event: {str(e)}")
 
     return HttpResponse(status=status.HTTP_200_OK)

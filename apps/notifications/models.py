@@ -13,6 +13,7 @@ class Notification(BaseModel):
         ("DELIVERY_REMINDER", "Delivery reminder"),
         ("WEEKLY_REPORTS", "Weekly reports"),
         ("INSUFFICIENT_INVENTORY", "Insufficient inventory for order"),
+        ("TRIAL_ENDING", "Trial period ending soon"),
     )
 
     user = models.ForeignKey(
