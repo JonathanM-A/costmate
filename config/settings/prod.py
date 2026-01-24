@@ -19,6 +19,11 @@ from decouple import config
 from django.utils.log import DEFAULT_LOGGING
 import logging.config
 from celery.schedules import crontab
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -496,3 +501,42 @@ CORS_EXPOSE_HEADERS = [
     "Content-Range",
 ]
 CORS_MAX_AGE = 86400  # 1 day
+
+# Sentry Configuration
+# https://docs.sentry.io/platforms/python/integrations/django/
+SENTRY_DSN = env("SENTRY_DSN", default="")  # type: ignore
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default="production")  # type: ignore
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(
+                transaction_style="url",
+                middleware_spans=True,
+                signals_spans=True,
+                cache_spans=True,
+            ),
+            CeleryIntegration(
+                monitor_beat_tasks=True,
+                propagate_traces=True,
+            ),
+            RedisIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR,
+            ),
+        ],
+        environment=SENTRY_ENVIRONMENT,
+        # Performance Monitoring
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),  # type: ignore
+        # Profile 10% of sampled transactions for performance profiling
+        profiles_sample_rate=env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0.1),  # type: ignore
+        # Set a release version for tracking deployments
+        release=env("SENTRY_RELEASE", default="costnav@1.0.0"),  # type: ignore
+        # Send user information (without PII)
+        send_default_pii=True,
+        # Enable database query performance tracking
+        enable_db_query_source=True,
+        db_query_source_threshold_ms=100,
+    )
