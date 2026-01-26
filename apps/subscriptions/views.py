@@ -19,7 +19,9 @@ class CreateSubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, version):
-        return Response({"detail": "Ready to create subscription."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Ready to create subscription."}, status=status.HTTP_200_OK
+        )
 
     @swagger_auto_schema(
         request_body=openapi.Schema(
@@ -31,36 +33,43 @@ class CreateSubscriptionView(APIView):
         ),
         operation_summary="Create a subscription",
         operation_description="This endpoint creates a new subscription for the authenticated user.",
-        responses={200: openapi.Response("Checkout URL", openapi.Schema(type="string")),
-                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
-                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+        responses={
+            200: openapi.Response("Checkout URL", openapi.Schema(type="string")),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+            403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+        },
     )
     def post(self, request, version):
         """Create a new subscription for the authenticated user."""
 
         try:
             user = request.user
-            tier_key = request.data.get('tier_key')
+            tier_key = request.data.get("tier_key")
             price_id = settings.TIER_PLAN_MAPPING.get(tier_key)
 
             if not price_id:
-                return Response({"error": "Invalid tier key provided."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Invalid tier key provided."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             customer_just_created = False
 
             if not user.stripe_customer_id:
                 # Create a new Stripe customer if not exists
                 customer = stripe.Customer.create(
-                    email=user.email,
-                    name=f"{user.first_name} {user.last_name}"
+                    email=user.email, name=f"{user.first_name} {user.last_name}"
                 )
                 user.stripe_customer_id = customer.id
-                user.save(update_fields=['stripe_customer_id'])
-                customer_just_created = True
+                user.save(update_fields=["stripe_customer_id"])
 
             # Check if user already has a subscription
-            if hasattr(user, "subscriptions") and user.subscriptions.is_active and not user.subscriptions.is_cancelled:
+            if (
+                hasattr(user, "subscriptions")
+                and user.subscriptions.is_active
+                and not user.subscriptions.is_cancelled
+            ):
                 return Response({"error": "User already has an active subscription."})
 
             session_args = {
@@ -79,22 +88,32 @@ class CreateSubscriptionView(APIView):
                 "metadata": {
                     "user_id": str(user.id),
                     "product_tier": tier_key,
-                }
+                },
             }
 
-            if customer_just_created and not user.has_used_free_trial:
-                session_args["subscription_data"] = {"trial_period_days": settings.TRIAL_PERIOD_DAYS}
+            if not user.has_used_free_trial:
+                session_args["subscription_data"] = {
+                    "trial_period_days": settings.TRIAL_PERIOD_DAYS,
+                    "trial_settings": {
+                        "end_behavior": {"missing_payment_method": "pause"}
+                    },
+                }
 
             checkout_session = stripe.checkout.Session.create(**session_args)
 
-            return Response({"checkout_url": checkout_session.url}, status=status.HTTP_200_OK)
+            return Response(
+                {"checkout_url": checkout_session.url}, status=status.HTTP_200_OK
+            )
 
         except stripe.StripeError as e:
             logger.error(f"Stripe error during subscription creation: {e.user_message}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error during subscription creation: {str(e)}")
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class CancelSubscriptionView(APIView):
@@ -103,12 +122,15 @@ class CancelSubscriptionView(APIView):
     @swagger_auto_schema(
         operation_summary="Cancel a subscription",
         operation_description="This endpoint cancels the authenticated user's active subscription.",
-        responses={200: openapi.Response("Subscription cancelled successfully", openapi.Schema(type="string")),
-                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
-                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+        responses={
+            200: openapi.Response(
+                "Subscription cancelled successfully", openapi.Schema(type="string")
+            ),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+            403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+        },
     )
-
     def post(self, request, version=None):
         """Cancel the user's active subscription."""
         try:
@@ -116,22 +138,40 @@ class CancelSubscriptionView(APIView):
             subscription = user.subscriptions
 
             if not subscription or not subscription.subscription_code:
-                logger.error(f"User {user.id} attempted to cancel but has no subscription_code.")
-                return Response({"error": "No active subscription code found."}, status=status.HTTP_400_BAD_REQUEST)
+                logger.error(
+                    f"User {user.id} attempted to cancel but has no subscription_code."
+                )
+                return Response(
+                    {"error": "No active subscription code found."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             if not subscription.is_active:
-                return Response({"detail": "No active subscription to cancel."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "No active subscription to cancel."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            stripe.Subscription.modify(subscription.subscription_code, cancel_at_period_end=True)
+            stripe.Subscription.modify(
+                subscription.subscription_code, cancel_at_period_end=True
+            )
 
-            return Response({"detail": "Subscription cancelled successfully."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "Subscription cancelled successfully."},
+                status=status.HTTP_200_OK,
+            )
 
         except stripe.StripeError as e:
-            logger.error(f"Stripe error during subscription cancellation: {e.user_message}")
+            logger.error(
+                f"Stripe error during subscription cancellation: {e.user_message}"
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error during subscription cancellation: {str(e)}")
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class ChangeSubscriptionView(APIView):
@@ -140,64 +180,83 @@ class ChangeSubscriptionView(APIView):
     @swagger_auto_schema(
         operation_summary="Change a subscription",
         operation_description="This endpoint changes the authenticated user's active subscription.",
-        responses={200: openapi.Response("Subscription changed successfully", openapi.Schema(type="string")),
-                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
-                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))},
+        responses={
+            200: openapi.Response(
+                "Subscription changed successfully", openapi.Schema(type="string")
+            ),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+            403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+        },
         request_body=openapi.Schema(
             type="object",
             properties={
                 "tier_key": openapi.Schema(type="string"),
             },
             required=["tier_key"],
-        )
+        ),
     )
-
     def post(self, request, version):
         """Upgrade the user's subscription tier."""
         try:
             user = request.user
-            new_tier_key = request.data.get('tier_key')
+            new_tier_key = request.data.get("tier_key")
             new_price_id = settings.TIER_PLAN_MAPPING.get(new_tier_key)
 
             subscription = user.subscriptions
 
             if not subscription.is_active:
-                return Response({"detail": "No active subscription to upgrade."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "No active subscription to upgrade."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             stripe_sub = stripe.Subscription.retrieve(subscription.subscription_code)
-            item_id = stripe_sub['items']['data'][0].id
+            item_id = stripe_sub["items"]["data"][0].id
 
             stripe.Subscription.modify(
                 subscription.subscription_code,
-                items=[{
-                    'id': item_id,
-                    'price': new_price_id,
-                }],
-                proration_behavior='always_invoice',
+                items=[
+                    {
+                        "id": item_id,
+                        "price": new_price_id,
+                    }
+                ],
+                proration_behavior="always_invoice",
             )
 
-            return Response({"detail": "Subscription upgraded successfully."}, status=status.HTTP_200_OK)
-        
+            return Response(
+                {"detail": "Subscription upgraded successfully."},
+                status=status.HTTP_200_OK,
+            )
+
         except stripe.StripeError as e:
             logger.error(f"Stripe error during subscription upgrade: {e.user_message}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error during subscription upgrade: {str(e)}")
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 class SubscriptionDetailsView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
-    
+
     @swagger_auto_schema(
         operation_summary="Get subscription details",
         operation_description="This endpoint retrieves the authenticated user's subscription details.",
-        responses={200: openapi.Response("Subscription details retrieved successfully", openapi.Schema(type="string")),
-                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
-                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+        responses={
+            200: openapi.Response(
+                "Subscription details retrieved successfully",
+                openapi.Schema(type="string"),
+            ),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+            403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+        },
     )
-
     def get(self, request, version):
         """Retrieve the user's subscription details."""
         try:
@@ -205,21 +264,26 @@ class SubscriptionDetailsView(RetrieveAPIView):
             subscription = user.subscriptions
 
             if not subscription:
-                return Response({"detail": "No active subscription found."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "No active subscription found."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             data = {
                 "tier": subscription.tier,
                 "current_sub_start": subscription.current_sub_start,
                 "current_sub_end": subscription.current_sub_end,
                 "is_active": subscription.is_active,
-                "is_cancelled": subscription.is_cancelled
+                "is_cancelled": subscription.is_cancelled,
             }
 
             return Response(data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(f"Unexpected error retrieving subscription details: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class VerifySubscriptionView(APIView):
@@ -228,12 +292,16 @@ class VerifySubscriptionView(APIView):
     @swagger_auto_schema(
         operation_summary="Verify subscription status",
         operation_description="This endpoint verifies the authenticated user's subscription status.",
-        responses={200: openapi.Response("Subscription status verified successfully", openapi.Schema(type="string")),
-                   400: openapi.Response("Bad request", openapi.Schema(type="string")),
-                   401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-                   403: openapi.Response("Forbidden", openapi.Schema(type="string"))}
+        responses={
+            200: openapi.Response(
+                "Subscription status verified successfully",
+                openapi.Schema(type="string"),
+            ),
+            400: openapi.Response("Bad request", openapi.Schema(type="string")),
+            401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
+            403: openapi.Response("Forbidden", openapi.Schema(type="string")),
+        },
     )
-
     def get(self, request, *args, **kwargs):
         session_id = request.query_params.get("session_id")
 
@@ -247,14 +315,14 @@ class VerifySubscriptionView(APIView):
                 )
 
             user = request.user
-            if (
-                hasattr(user, "subscriptions") and user.subscriptions.is_active
-            ):
+            if hasattr(user, "subscriptions") and user.subscriptions.is_active:
                 return Response({"status": "verified"}, status=status.HTTP_200_OK)
             else:
                 return Response({"status": "processing"}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"error": f"Invalid session {e}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": f"Invalid session {e}"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class AddPaymentMethodView(APIView):
@@ -267,7 +335,7 @@ class AddPaymentMethodView(APIView):
             200: openapi.Response("Checkout URL", openapi.Schema(type="string")),
             400: openapi.Response("Bad request", openapi.Schema(type="string")),
             401: openapi.Response("Unauthorized", openapi.Schema(type="string")),
-        }
+        },
     )
     def post(self, request, version):
         """Create a setup mode checkout session to collect payment details."""
@@ -276,8 +344,10 @@ class AddPaymentMethodView(APIView):
 
             if not user.stripe_customer_id:
                 return Response(
-                    {"error": "No Stripe customer found. Please start a subscription first."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {
+                        "error": "No Stripe customer found. Please start a subscription first."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             checkout_session = stripe.checkout.Session.create(
@@ -288,14 +358,19 @@ class AddPaymentMethodView(APIView):
                 cancel_url=f"{settings.DOMAIN_NAME}/settings",
                 metadata={
                     "user_id": str(user.id),
-                }
+                },
             )
 
-            return Response({"checkout_url": checkout_session.url}, status=status.HTTP_200_OK)
+            return Response(
+                {"checkout_url": checkout_session.url}, status=status.HTTP_200_OK
+            )
 
         except stripe.StripeError as e:
             logger.error(f"Stripe error during payment method setup: {e.user_message}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error during payment method setup: {str(e)}")
-            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
