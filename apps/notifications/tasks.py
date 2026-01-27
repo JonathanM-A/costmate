@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.core.cache import cache
 from django.urls import reverse
+from django.conf import settings
 from .models import Notification
 from ..orders.models import Order
 from ..users.models import UserPreferences
@@ -33,7 +34,7 @@ def check_upcoming_deliveries():
 
     notifications = []
     for order in upcoming_orders:
-        target_url = reverse("api:orders:orders-detail", kwargs={"version": "v1", "pk": order.id})
+        target_url = settings.DOMAIN_NAME + reverse("api:orders:orders-detail", kwargs={"version": "v1", "pk": order.id})
         notifications.append(
             Notification(
                 user=order.created_by,
@@ -58,7 +59,7 @@ def weekly_report_notifications():
     end_date = timezone.now().date()
     start_date = end_date - timedelta(days=7)
 
-    base_url = reverse("api:analytics:analytics", kwargs={"version": "v1"})
+    base_url = settings.DOMAIN_NAME + reverse("api:analytics:analytics", kwargs={"version": "v1"})
     query_params = (
         f"?start_date={start_date.isoformat()}&end_date={end_date.isoformat()}"
     )
@@ -66,7 +67,6 @@ def weekly_report_notifications():
 
     opted_in_users = (
         UserPreferences.objects.filter(notification_preferences__weekly_reports=True)
-        .select_related("user")
         .values_list("user_id", flat=True)
     )
 
