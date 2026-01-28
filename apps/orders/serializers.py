@@ -108,15 +108,22 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             order_instance = Order.objects.create(**validated_data)
 
-            order_recipes = []
-            for recipe in recipes:
-                order_recipe = OrderRecipe(
+            # Prefetch all recipes in one query to avoid N+1
+            recipe_ids = [recipe_data["recipe_id"] for recipe_data in recipes]
+            recipe_map = {
+                str(recipe_obj.id): recipe_obj
+                for recipe_obj in Recipe.objects.filter(id__in=recipe_ids)
+            }
+
+            order_recipes = [
+                OrderRecipe(
                     order=order_instance,
-                    recipe_id=recipe["recipe_id"],
-                    quantity=recipe.get("quantity", 1),
+                    recipe_id=recipe_data["recipe_id"],
+                    quantity=recipe_data.get("quantity", 1),
+                    line_cost=recipe_map[recipe_data["recipe_id"]].total_cost * recipe_data.get("quantity", 1),
                 )
-                order_recipe.calculate_price()
-                order_recipes.append(order_recipe)
+                for recipe_data in recipes
+            ]
             OrderRecipe.objects.bulk_create(order_recipes)
             order_instance.save()
 
@@ -148,16 +155,23 @@ class OrderSerializer(serializers.ModelSerializer):
                 existing_recipes = set(
                     instance.order_recipes.values_list("id", flat=True)
                 )
-                new_recipes = []
 
-                for recipe in recipes:
-                    order_recipe = OrderRecipe(
+                # Prefetch all recipes in one query to avoid N+1
+                recipe_ids = [recipe_data["recipe_id"] for recipe_data in recipes]
+                recipe_map = {
+                    str(recipe_obj.id): recipe_obj
+                    for recipe_obj in Recipe.objects.filter(id__in=recipe_ids)
+                }
+
+                new_recipes = [
+                    OrderRecipe(
                         order=instance,
-                        recipe_id=recipe["recipe_id"],
-                        quantity=recipe.get("quantity", 1),
+                        recipe_id=recipe_data["recipe_id"],
+                        quantity=recipe_data.get("quantity", 1),
+                        line_cost=recipe_map[recipe_data["recipe_id"]].total_cost * recipe_data.get("quantity", 1),
                     )
-                    order_recipe.calculate_price()
-                    new_recipes.append(order_recipe)
+                    for recipe_data in recipes
+                ]
                 OrderRecipe.objects.bulk_create(new_recipes)
 
                 # Remove recipes that are no longer in the new list
