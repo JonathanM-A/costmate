@@ -2,6 +2,7 @@ from djmoney.money import Money
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import Coalesce
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
@@ -85,7 +86,7 @@ class CustomerViewset(ModelViewSet):
 
             total_orders = customer.orders.filter(is_active=True).count()
             total_spent = customer.orders.filter(is_active=True).aggregate(
-                        total=Sum("total_value")
+                        total=Sum(Coalesce("preferred_final_price", "suggested_price"))
                     )["total"]
             
             avg_order_value = str(Money(total_spent / total_orders if total_orders > 0 else 0, currency))
