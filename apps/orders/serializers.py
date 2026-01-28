@@ -96,30 +96,6 @@ class OrderSerializer(serializers.ModelSerializer):
             )
         return fields
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-
-        money_fields = [
-            "subtotal",
-            "overhead",
-            "packaging",
-            "total_cost",
-            "order_price",
-            "discount",
-            "final_price",
-            "vat_amount",
-            "suggested_price",
-            "preferred_final_price",
-        ]
-
-        for field in money_fields:
-            if field in representation and representation[field] is not None:
-                representation[field] = str(Money(amount=representation[field], currency=self.currency))
-
-        representation["profit_margin"] = str(instance.profit_margin) + "%"
-        representation["vat_rate"] = str(instance.vat_rate) + "%"
-        representation["customer"] = instance.customer.name
-        return representation
 
     def create(self, validated_data):
         from ..notifications.models import Notification
@@ -132,14 +108,15 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             order_instance = Order.objects.create(**validated_data)
 
-            order_recipes = [
-                OrderRecipe(
+            order_recipes = []
+            for recipe in recipes:
+                order_recipe = OrderRecipe(
                     order=order_instance,
                     recipe_id=recipe["recipe_id"],
                     quantity=recipe.get("quantity", 1),
                 )
-                for recipe in recipes
-            ]
+                order_recipe.calculate_price()
+                order_recipes.append(order_recipe)
             OrderRecipe.objects.bulk_create(order_recipes)
             order_instance.save()
 
@@ -174,13 +151,13 @@ class OrderSerializer(serializers.ModelSerializer):
                 new_recipes = []
 
                 for recipe in recipes:
-                    new_recipes.append(
-                        OrderRecipe(
-                            order=instance,
-                            recipe_id=recipe["recipe_id"],
-                            quantity=recipe.get("quantity", 1),
-                        )
+                    order_recipe = OrderRecipe(
+                        order=instance,
+                        recipe_id=recipe["recipe_id"],
+                        quantity=recipe.get("quantity", 1),
                     )
+                    order_recipe.calculate_price()
+                    new_recipes.append(order_recipe)
                 OrderRecipe.objects.bulk_create(new_recipes)
 
                 # Remove recipes that are no longer in the new list
@@ -191,6 +168,30 @@ class OrderSerializer(serializers.ModelSerializer):
 
         return instance
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        money_fields = [
+            "subtotal",
+            "overhead",
+            "packaging",
+            "total_cost",
+            "order_price",
+            "discount",
+            "final_price",
+            "vat_amount",
+            "suggested_price",
+            "preferred_final_price",
+        ]
+
+        for field in money_fields:
+            if field in representation and representation[field] is not None:
+                representation[field] = str(Money(amount=representation[field], currency=self.currency))
+
+        representation["profit_margin"] = str(instance.profit_margin) + "%"
+        representation["vat_rate"] = str(instance.vat_rate) + "%"
+        representation["customer"] = instance.customer.name
+        return representation
 
 class OverheadSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
