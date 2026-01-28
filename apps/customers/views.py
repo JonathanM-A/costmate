@@ -22,7 +22,7 @@ class CustomerViewset(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.none()
     http_method_names = [m for m in ModelViewSet.http_method_names if m != "put"]
-    search_fields = ["name", "contact", "email"]
+    search_fields = ["first_name", "last_name", "contact", "email"]
 
     def get_queryset(self):  # type: ignore
         user = self.request.user
