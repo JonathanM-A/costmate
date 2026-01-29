@@ -540,5 +540,4 @@ if SENTRY_DSN:
         # Enable database query performance tracking
         enable_db_query_source=True,
         db_query_source_threshold_ms=100,
-        enable_logs=True,
     )
