@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, UserPreferences
 
 
 @admin.register(User)
@@ -46,5 +46,44 @@ class UserAdmin(BaseUserAdmin):
                     "last_name",
                 ),
             },
+        ),
+    )
+
+
+@admin.register(UserPreferences)
+class UserPreferencesAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "currency",
+        "profit_margin",
+        "labor_rate",
+        "tax_enabled",
+        "tax_rate",
+    )
+    list_filter = ("currency", "tax_enabled")
+    search_fields = ("user__email", "user__first_name", "user__last_name")
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        (None, {"fields": ("user",)}),
+        (
+            "Regional Settings",
+            {"fields": ("currency", "date_format", "language", "time_zone")},
+        ),
+        (
+            "Business Settings",
+            {"fields": ("profit_margin", "labor_rate", "estimated_monthly_orders")},
+        ),
+        (
+            "Tax Settings",
+            {"fields": ("tax_enabled", "tax_rate")},
+        ),
+        (
+            "Notifications",
+            {"fields": ("notification_preferences",)},
+        ),
+        (
+            "Timestamps",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
