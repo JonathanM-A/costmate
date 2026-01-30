@@ -68,7 +68,6 @@ class InventoryUpdateService:
             )
 
             if unit:
-                print("Unit: ", unit)
                 if InventoryUnitService.validate_unit_compatibility(inventory_item_unit, unit):
                     converted_quantity = InventoryUnitService.convert_quantity(
                         inventory_item_unit, unit, quantity
@@ -250,14 +249,10 @@ class InventoryUnitService:
         item_factor = Decimal(cls.CONVERSION_MAP.get(inventory_item_unit.lower()).get("factor")) # type: ignore
         payload_factor = Decimal(cls.CONVERSION_MAP.get(unit.lower()).get("factor")) # type: ignore
 
-        print (type(item_factor), type(payload_factor))
-
         if item_factor and payload_factor:
             # Convert quantity to base unit, then to inventory item unit
             base_quantity = Decimal(quantity) * payload_factor
-            print(type(base_quantity))
             converted_quantity = base_quantity / item_factor
-            print(type(converted_quantity))
             return converted_quantity
 
         # If either unit is not in the conversion map, return original quantity
