@@ -33,7 +33,7 @@ from .serializers import (
 from .filters import InventoryFilter
 from ..recipes.serializers import RecipeSerializer
 from ..users.permissions import IsSubscriptionActive
-from ..users.utils import get_user_preferrence_from_cache
+from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 import logging
 
 logger = logging.Logger(__name__)
@@ -115,6 +115,12 @@ class SupplierViewset(ModelViewSet):
             .prefetch_related("history")
             .order_by("name")
         )
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            update_onboarding_metric(request.user, "has_added_supplier")
+        return response
 
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)
@@ -242,6 +248,7 @@ class InventoryView(ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instances = serializer.save()
+            update_onboarding_metric(request.user, "has_added_inventory")
             return Response(
                 InventoryHistorySerializer(
                     instances, many=True, context={"request": request}

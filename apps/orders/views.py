@@ -13,7 +13,7 @@ from .serializers import (
     OverheadSerializer,
 )
 from ..users.permissions import IsSubscriptionActive
-from ..users.utils import get_user_preferrence_from_cache
+from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 
 
 class OrderViewSet(ModelViewSet):
@@ -57,6 +57,12 @@ class OrderViewSet(ModelViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            update_onboarding_metric(request.user, "has_created_order")
+        return response
 
     def retrieve(self, request, *args, **kwargs):
         results = super().retrieve(request, *args, **kwargs)
@@ -189,6 +195,12 @@ class OverheadViewSet(ModelViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            update_onboarding_metric(request.user, "has_calculated_overhead")
+        return response
 
     def list(self, request, *args, **kwargs):
         result = super().list(request, *args, **kwargs)

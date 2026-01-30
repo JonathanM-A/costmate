@@ -13,7 +13,7 @@ from .serializers import (
     RecipeCategory,
 )
 from ..users.permissions import IsSubscriptionActive
-from ..users.utils import get_user_preferrence_from_cache
+from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 import logging
 
 logger = logging.Logger(__name__)
@@ -51,7 +51,10 @@ class RecipeViewset(ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         try:
-            return super().create(request, *args, **kwargs)
+            response = super().create(request, *args, **kwargs)
+            if response.status_code == status.HTTP_201_CREATED:
+                update_onboarding_metric(request.user, "has_created_recipe")
+            return response
         except Exception as e:
             logger.error(f"Error creating recipe: {str(e)}")
             return Response(

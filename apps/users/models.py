@@ -173,3 +173,50 @@ class UserPreferences(BaseModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class OnboardingMetrics(BaseModel):
+    id = None
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="onboarding_metrics",
+        primary_key=True,
+    )
+    # Step 1: Create your account - tracked by user creation itself
+    # Step 2: Enter business (Settings)
+    has_entered_business_settings = models.BooleanField(default=False)
+    # Step 3: Add Supplier
+    has_added_supplier = models.BooleanField(default=False)
+    # Step 4: Add all inventory items from your recent purchase
+    has_added_inventory = models.BooleanField(default=False)
+    # Step 5: Create your first recipe
+    has_created_recipe = models.BooleanField(default=False)
+    # Step 6: Calculate overhead
+    has_calculated_overhead = models.BooleanField(default=False)
+    # Step 7: Add a customer
+    has_added_customer = models.BooleanField(default=False)
+    # Step 8: Create your first order
+    has_created_order = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Onboarding Metrics"
+        verbose_name_plural = "Onboarding Metrics"
+
+    def __str__(self):
+        return f"Onboarding metrics for {self.user.email}"
+
+    @property
+    def completion_percentage(self):
+        """Calculate the percentage of onboarding steps completed."""
+        steps = [
+            True,  # Account created (always true if this record exists)
+            self.has_entered_business_settings,
+            self.has_added_supplier,
+            self.has_added_inventory,
+            self.has_created_recipe,
+            self.has_calculated_overhead,
+            self.has_added_customer,
+            self.has_created_order,
+        ]
+        return str(int((sum(steps) / len(steps)) * 100)) + "%"
