@@ -406,7 +406,6 @@ class InventoryView(ModelViewSet):
 
         with transaction.atomic():
             # Decrease the stock
-            print(quantity)
             updated = Inventory.objects.filter(pk=pk, quantity__gte=quantity).update(
                 quantity=F("quantity") - quantity
             )
@@ -417,7 +416,6 @@ class InventoryView(ModelViewSet):
                 )
             inventory.refresh_from_db()
             inventory.calculate_total_value()
-            print("After decrease, total value:", inventory.total_value)
 
             # Log the inventory history
             inventory_history_data = {
