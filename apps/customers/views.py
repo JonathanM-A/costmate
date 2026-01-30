@@ -10,7 +10,7 @@ from .serializers import (
     Customer,
     CustomerSerializer,
 )
-from ..users.utils import get_user_preferrence_from_cache
+from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 from ..users.permissions import IsSubscriptionActive
 import logging
 
@@ -153,4 +153,7 @@ class CustomerViewset(ModelViewSet):
     )
     def create(self, request, *args, **kwargs):
         """Create a new customer."""
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            update_onboarding_metric(request.user, "has_added_customer")
+        return response

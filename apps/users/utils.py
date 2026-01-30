@@ -1,7 +1,10 @@
 from django.conf import settings
 from django.core.cache import cache
-from .models import UserPreferences
+from .models import UserPreferences, OnboardingMetrics
 from .serializers import UserPreferencesSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_preferences_cache_key(user_id, version=settings.REST_FRAMEWORK["DEFAULT_VERSION"]):
     """
@@ -42,4 +45,31 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
             return default
     return preferences.get(preference_type, default)
 
-    
+
+def update_onboarding_metric(user, metric_field):
+    """
+    Update a specific onboarding metric field to True for a user.
+
+    Args:
+        user: The user instance.
+        metric_field (str): The name of the metric field to update.
+
+    Returns:
+        bool: True if the metric was updated, False otherwise.
+    """
+    try:
+        if not hasattr(user, "onboarding_metrics"):
+            return False
+
+        metrics = user.onboarding_metrics
+        if not getattr(metrics, metric_field, True):
+            setattr(metrics, metric_field, True)
+            metrics.save(update_fields=[metric_field, "updated_at"])
+            return True
+        return False
+    except OnboardingMetrics.DoesNotExist:
+        logger.warning(f"OnboardingMetrics not found for user {user.id}")
+        return False
+    except Exception as e:
+        logger.error(f"Error updating onboarding metric {metric_field} for user {user.id}: {e}")
+        return False

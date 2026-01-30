@@ -4,7 +4,7 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from allauth.account.adapter import get_adapter
 from allauth.account.utils import setup_user_email
 from allauth.account.models import EmailAddress
-from .models import User, UserPreferences
+from .models import User, UserPreferences, OnboardingMetrics
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "password",
             "stripe_customer_id",
-            "staff_count",  
+            "staff_count",
         )
 
 
@@ -98,12 +98,24 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class OnboardingMetricsSerializer(serializers.ModelSerializer):
+    """Serializer for OnboardingMetrics model"""
+
+    completion_percentage = serializers.ReadOnlyField()
+
+    class Meta:
+        model = OnboardingMetrics
+        exclude = ["is_active", "created_at", "updated_at"]
+        read_only_fields = ("user", "created_at", "updated_at")
+
+
 FORMAT_MAPPING = {
     "DD": "%d",
     "MM": "%m",
     "YYYY": "%Y",
     "YY": "%y",
 }
+
 
 class UserFormattedDate(serializers.DateField):
 
@@ -113,14 +125,16 @@ class UserFormattedDate(serializers.DateField):
         for key, value in FORMAT_MAPPING.items():
             python_format = python_format.replace(key, value)
         return python_format
-    
+
     def to_representation(self, value):
         from .utils import get_user_preferrence_from_cache
-        
-        user = self.context['request'].user
-        user_format = get_user_preferrence_from_cache(user.id, "date_format", "DD/MM/YYYY")
+
+        user = self.context["request"].user
+        user_format = get_user_preferrence_from_cache(
+            user.id, "date_format", "DD/MM/YYYY"
+        )
         output_format = self._translate_format(user_format)
-        
+
         if not value:
             return None
         try:
@@ -128,4 +142,3 @@ class UserFormattedDate(serializers.DateField):
         except Exception as e:
             logger.error(f"Error formatting date: {e}")
             return value.isoformat()
-        

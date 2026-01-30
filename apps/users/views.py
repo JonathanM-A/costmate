@@ -23,7 +23,9 @@ from .serializers import (
     User,
     UserPreferencesSerializer,
     UserPreferences,
+    OnboardingMetricsSerializer,
 )
+from .models import OnboardingMetrics
 from .utils import get_preferences_cache_key
 import requests
 import environ
@@ -259,4 +261,32 @@ class UserPreferencesView(RetrieveUpdateAPIView):
         response = super().update(request, *args, **kwargs)
         if response.status_code == status.HTTP_200_OK:
             cache.set(cache_key, response.data, timeout=settings.CACHE_TIMEOUT)
+            # Update onboarding metrics when business settings are updated
+            if hasattr(request.user, "onboarding_metrics"):
+                metrics = request.user.onboarding_metrics
+                if not metrics.has_entered_business_settings:
+                    metrics.has_entered_business_settings = True
+                    metrics.save(update_fields=["has_entered_business_settings", "updated_at"])
         return response
+
+
+class OnboardingMetricsView(RetrieveUpdateAPIView):
+    """View for retrieving and updating onboarding metrics"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = OnboardingMetricsSerializer
+
+    def get_object(self):
+        return (
+            self.request.user.onboarding_metrics
+            if hasattr(self.request.user, "onboarding_metrics")
+            else None
+        )
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return OnboardingMetrics.objects.none()
+
+        if hasattr(user, "onboarding_metrics"):
+            return OnboardingMetrics.objects.filter(user=user)
+        return OnboardingMetrics.objects.none()

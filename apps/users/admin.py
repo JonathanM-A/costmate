@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, UserPreferences
+from .models import User, UserPreferences, OnboardingMetrics
 
 
 @admin.register(User)
@@ -87,3 +87,59 @@ class UserPreferencesAdmin(admin.ModelAdmin):
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
+
+
+@admin.register(OnboardingMetrics)
+class OnboardingMetricsAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "has_entered_business_settings",
+        "has_added_supplier",
+        "has_added_inventory",
+        "has_created_recipe",
+        "has_calculated_overhead",
+        "has_added_customer",
+        "has_created_order",
+        "completion_percentage",
+    )
+    list_filter = (
+        "has_entered_business_settings",
+        "has_added_supplier",
+        "has_added_inventory",
+        "has_created_recipe",
+        "has_calculated_overhead",
+        "has_added_customer",
+        "has_created_order",
+    )
+    search_fields = ("user__email", "user__first_name", "user__last_name")
+    readonly_fields = ("created_at", "updated_at", "completion_percentage")
+
+    fieldsets = (
+        (None, {"fields": ("user",)}),
+        (
+            "Setup Progress",
+            {
+                "fields": (
+                    "has_entered_business_settings",
+                    "has_added_supplier",
+                    "has_added_inventory",
+                    "has_created_recipe",
+                    "has_calculated_overhead",
+                    "has_added_customer",
+                    "has_created_order",
+                )
+            },
+        ),
+        (
+            "Completion",
+            {"fields": ("completion_percentage",)},
+        ),
+        (
+            "Timestamps",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def completion_percentage(self, obj):
+        return f"{obj.completion_percentage}%"
+    completion_percentage.short_description = "Completion"
