@@ -416,6 +416,8 @@ STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")  # type: ignore
 TIER_PLAN_MAPPING = {
     "UK_Y": f"{env("UK_YEARLY_PLAN")}",
     "UK_M": f"{env("UK_MONTHLY_PLAN")}",
+    "US_Y": f"{env("US_YEARLY_PLAN")}",
+    "US_M": f"{env("US_MONTHLY_PLAN")}",
 }
 DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="UK_M")  # type: ignore
 TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=30)  # type: ignore
