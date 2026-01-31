@@ -114,8 +114,8 @@ def stripe_webhook(request, version):
         )
     
     elif event["type"] == "customer.subscription.deleted":
-        session = event["object"]
-        subscription_id = session.get("customer")
+        session = event["data"]["object"]
+        subscription_id = session.get("id")
         customer_id = session.get("customer")
 
         update_user_subscription(
