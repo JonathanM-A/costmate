@@ -418,6 +418,8 @@ TIER_PLAN_MAPPING = {
     "UK_M": f"{env("UK_MONTHLY_PLAN")}",
     "US_Y": f"{env("US_YEARLY_PLAN")}",
     "US_M": f"{env("US_MONTHLY_PLAN")}",
+    "NG_M": f"{env("NG_MONTHLY_PLAN")}",
+    "NG_Y": f"{env("NG_YEARLY_PLAN")}",
 }
 DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="UK_M")  # type: ignore
 TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=30)  # type: ignore
