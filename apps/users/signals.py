@@ -18,7 +18,7 @@ def create_related_models(sender, instance, created, **kwargs):
     if created and not instance.is_superuser:
         create_user_preferences(instance.id)  # type: ignore
         create_onboarding_metrics(instance.id)  # type: ignore
-        create_trial_subscription(instance)
+        # create_trial_subscription(instance)
 
 
 def create_trial_subscription(user):
