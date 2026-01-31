@@ -5,16 +5,20 @@ import uuid
 from django.db import migrations, models
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
-from django.apps import apps as django_apps
 
 
 def create_superuser(apps, schema_editor):
-    UserModel = django_apps.get_model("users", "User")
+    User = apps.get_model("users", "User")
 
-    # Create superuser
-    UserModel.objects.create_superuser( # type: ignore
+    # Create superuser manually using historical model
+    User.objects.create(
         email=settings.ADMIN_EMAIL,
-        password=settings.ADMIN_PASSWORD,
+        password=make_password(settings.ADMIN_PASSWORD),
+        is_superuser=True,
+        is_staff=True,
+        is_active=True,
+        first_name="Admin",
+        last_name="User",
     )
 
 
