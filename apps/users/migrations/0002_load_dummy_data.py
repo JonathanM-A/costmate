@@ -19,17 +19,18 @@ def create_initial_data(apps, schema_editor):
     # Create test users
     test_users = []
     for i in range(1, 6):
-        user = User.objects.create(
+        user, _ = User.objects.get_or_create(
             email=f"test{i}@test.com",
-            first_name="Test",
-            last_name="User",
-            business_name=f"Test Business {i}",
-            location_country="Test Country",
-            location_city="Test City",
-            is_active=True,
-            password=make_password("Jonathan1@")
+            defaults={
+                "first_name": "Test",
+                "last_name": "User",
+                "business_name": f"Test Business {i}",
+                "location_country": "Test Country",
+                "location_city": "Test City",
+                "is_active": True,
+                "password": make_password("Jonathan1@"),
+            }
         )
-        user.save()
         test_users.append(user)
 
     # Create default baking ingredients
@@ -48,11 +49,11 @@ def create_initial_data(apps, schema_editor):
 
     # Create inventory items
     for item in baking_ingredients:
-        InventoryItem.objects.create(
+        InventoryItem.objects.get_or_create(
             name=item["name"],
             unit=item["unit"],
-            is_default=True,
-            created_by=superuser,  # Super user creates default items
+            created_by=superuser,
+            defaults={"is_default": True},
         )
 
     # Create some suppliers
@@ -65,8 +66,10 @@ def create_initial_data(apps, schema_editor):
     ]
 
     for supplier_name in suppliers:
-        Supplier.objects.create(
-            name=supplier_name, contact="1234567890", created_by=test_users[0]
+        Supplier.objects.get_or_create(
+            name=supplier_name,
+            created_by=test_users[0],
+            defaults={"contact": "1234567890"},
         )
 
 
