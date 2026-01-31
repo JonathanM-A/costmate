@@ -85,7 +85,7 @@ class OrderViewSet(ModelViewSet):
         )
 
         order_stats = self.get_queryset().aggregate(
-            total_orders=Count("id", filter=Q(status="completed")),
+            total_orders=Count("id", filter=Q(status__in=["completed", "pending"])),
             total_pending=Count("id", filter=Q(status="pending")),
             due_today=Count(
                 "id",
