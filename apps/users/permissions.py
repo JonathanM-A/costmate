@@ -31,7 +31,7 @@ class IsSubscriptionActive(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        subscription = getattr(request.user, 'subscription', None)
-        if subscription and getattr(subscription, 'is_active', False):
-            return True
-        raise SubscriptionException()
+        subscription = getattr(request.user, 'subscriptions', None)
+        if not subscription or not getattr(subscription, 'is_active', False):
+            raise SubscriptionException()
+        return True
