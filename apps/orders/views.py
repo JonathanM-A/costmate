@@ -138,8 +138,6 @@ class OrderViewSet(ModelViewSet):
             is_available, insufficient_items = order.check_inventory_availability()
             if not is_available:
                 error_message = "Cannot complete order. Insufficient inventory:"
-                for item in insufficient_items:
-                    error_message += f"- {item['recipe']}: {item['ingredient']} (Need: {item['needed']}{item['unit']}, Available: {item['available']}{item['unit']})\n"
                 return Response(
                     {"detail": error_message, "insufficient_items": insufficient_items},
                     status=status.HTTP_400_BAD_REQUEST
