@@ -240,6 +240,10 @@ class InventorySerializer(serializers.ModelSerializer):
         validated_data = super().validate(attrs)
 
         entries = validated_data.get("entries")
+        user = self.context["request"].user
+
+        # Collect all inventory item IDs for bulk validation
+        inventory_item_ids = []
         for entry in entries:
             inventory_item_id = entry.get("inventory_item_id")
             quantity = entry.get("quantity")
@@ -252,14 +256,20 @@ class InventorySerializer(serializers.ModelSerializer):
             if not isinstance(quantity, (int, float)) or quantity <= 0:
                 raise serializers.ValidationError("Quantity must be a positive number.")
 
-            try:
-                InventoryItem.objects.filter(
-                    Q(created_by=self.context["request"].user.id) | Q(is_default=True),
-                    id=inventory_item_id,
-                )
-            except InventoryItem.DoesNotExist:
+            inventory_item_ids.append(inventory_item_id)
+
+        # Validate all inventory items exist in a single query
+        valid_items = set(
+            InventoryItem.objects.filter(
+                Q(created_by=user.id) | Q(is_default=True),
+                id__in=inventory_item_ids,
+            ).values_list("id", flat=True)
+        )
+
+        for item_id in inventory_item_ids:
+            if item_id not in valid_items:
                 raise serializers.ValidationError(
-                    f"Inventory item with id {inventory_item_id} does not exist."
+                    f"Inventory item with id {item_id} does not exist."
                 )
 
         return validated_data

@@ -123,25 +123,33 @@ class SupplierViewset(ModelViewSet):
         return response
 
     def list(self, request, *args, **kwargs):
-        result = super().list(request, *args, **kwargs)
-
+        queryset = self.filter_queryset(self.get_queryset())
         currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
-        supplier_stats = self.get_queryset().aggregate(
+        supplier_stats = queryset.aggregate(
             total_suppliers=Count("id"),
             total_spent=Sum("history__cost_price"),
         )
 
         supplier_stats["total_spent"] = str(
-            Money(supplier_stats["total_spent"], currency) if supplier_stats["total_spent"] else Money(0, currency)
+            Money(supplier_stats["total_spent"] or 0, currency)
         )
 
-        result.data = {
-            "suppliers": result.data,
-            "stats": supplier_stats,
-        }
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data = {
+                "suppliers": response.data,
+                "stats": supplier_stats,
+            }
+            return response
 
-        return Response(result.data, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "suppliers": serializer.data,
+            "stats": supplier_stats,
+        }, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -156,6 +164,8 @@ class SupplierViewset(ModelViewSet):
         """Retrieve inventory history and compare cost price changes between two most recent entries of the last 5 inventory added."""
 
         user = request.user
+        currency = get_user_preferrence_from_cache(user.id, "currency", "USD")
+
         inventory_items = InventoryItem.objects.filter(
             Q(created_by=user) | Q(is_default=True), is_active=True
         ).prefetch_related(
@@ -163,7 +173,7 @@ class SupplierViewset(ModelViewSet):
                 "history",
                 queryset=InventoryHistory.objects.filter(
                     is_addition=True, created_by=user
-                ).order_by("-incident_date", "-created_at"),
+                ).select_related("supplier").order_by("-incident_date", "-created_at"),
             )
         )
 
@@ -186,28 +196,14 @@ class SupplierViewset(ModelViewSet):
                 result.append(
                     {
                         "ingredient": item.name,
-                        "current_price": str(
-                            Money(
-                                latest.cost_per_unit,
-                                get_user_preferrence_from_cache(
-                                    user.id, "currency", "USD"
-                                ),
-                            )
-                        ),
-                        "previous_price": str(
-                            Money(
-                                previous.cost_per_unit,
-                                get_user_preferrence_from_cache(
-                                    user.id, "currency", "USD"
-                                ),
-                            )
-                        ),
+                        "current_price": str(Money(latest.cost_per_unit, currency)),
+                        "previous_price": str(Money(previous.cost_per_unit, currency)),
                         "price_change_percentage": f"{round(price_change_percentage, 2)}%",
                         "last_updated": latest.incident_date,
                         "supplier": latest.supplier.name if latest.supplier else "N/A",
                     }
                 )
-        return Response({"results":result}, status=status.HTTP_200_OK)
+        return Response({"results": result}, status=status.HTTP_200_OK)
 
 
 class InventoryView(ModelViewSet):
@@ -265,7 +261,7 @@ class InventoryView(ModelViewSet):
         base_queryset = self.get_queryset()
         user = self.request.user
 
-        if base_queryset:
+        if base_queryset.exists():
             # Add aggregated data to the response
             aggregated_data = base_queryset.aggregate(
                 low_stock_level=Count(
@@ -284,7 +280,7 @@ class InventoryView(ModelViewSet):
                 total_inventory=Count("id")
             )
 
-            queryset = self.filter_queryset(self.get_queryset())
+            queryset = self.filter_queryset(base_queryset)
 
             page = self.paginate_queryset(queryset)
             if page is not None:

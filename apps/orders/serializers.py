@@ -7,6 +7,46 @@ from ..users.serializers import UserFormattedDate
 from .models import Order, Customer, Recipe, OrderRecipe, Overhead
 
 
+class CustomerOrderRecipeSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for recipe names in customer order history."""
+    recipe_name = serializers.StringRelatedField(read_only=True, source="recipe")
+
+    class Meta:
+        model = OrderRecipe
+        fields = ["recipe_name"]
+
+
+class CustomerOrderSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for customer order history display."""
+    recipes = serializers.SerializerMethodField()
+    delivery_date = UserFormattedDate(read_only=True)
+    suggested_price = serializers.SerializerMethodField()
+    preferred_final_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = ["id", "order_no", "recipes", "suggested_price", "preferred_final_price", "delivery_date", "status"]
+        read_only_fields = fields
+
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+
+    def get_recipes(self, obj):
+        order_recipes = getattr(obj, "prefetched_order_recipes", None) or obj.order_recipes.all()
+        return [or_.recipe.name for or_ in order_recipes]
+
+    def get_suggested_price(self, obj):
+        return str(Money(obj.suggested_price, self.currency))
+
+    def get_preferred_final_price(self, obj):
+        if obj.preferred_final_price is not None:
+            return str(Money(obj.preferred_final_price, self.currency))
+        return None
+
+
 class OrderRecipeSerializer(serializers.ModelSerializer):
     recipe_id = serializers.PrimaryKeyRelatedField(
         queryset=Recipe.objects.all(), write_only=True, source="recipe"

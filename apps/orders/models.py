@@ -186,10 +186,35 @@ class Order(BaseModel):
         insufficient_items format: [{"recipe": recipe_name, "ingredient": ingredient_name, "needed": amount, "available": amount}]
         """
         from ..inventory.models import Inventory
+        from ..recipes.models import RecipeInventory
 
         insufficient_items = []
 
-        for order_recipe in self.order_recipes.all():  # type: ignore
+        # Prefetch all order recipes with their ingredients in one query
+        order_recipes = self.order_recipes.select_related("recipe").prefetch_related(  # type: ignore
+            models.Prefetch(
+                "recipe__ingredients",
+                queryset=RecipeInventory.objects.select_related("inventory_item"),
+            )
+        )
+
+        # Collect all inventory item IDs needed
+        inventory_item_ids = set()
+        for order_recipe in order_recipes:
+            for recipe_inventory in order_recipe.recipe.ingredients.all():
+                inventory_item_ids.add(recipe_inventory.inventory_item_id)
+
+        # Fetch all relevant inventory records in one query
+        inventory_map = {
+            inv.inventory_item_id: inv
+            for inv in Inventory.objects.filter(
+                inventory_item_id__in=inventory_item_ids,
+                created_by=self.created_by
+            )
+        }
+
+        # Check availability
+        for order_recipe in order_recipes:
             recipe = order_recipe.recipe
             quantity_multiplier = order_recipe.quantity
 
@@ -197,27 +222,15 @@ class Order(BaseModel):
                 inventory_item = recipe_inventory.inventory_item
                 required_quantity = recipe_inventory.quantity * quantity_multiplier
 
-                try:
-                    inventory = Inventory.objects.get(
-                        inventory_item=inventory_item,
-                        created_by=self.created_by
-                    )
-                    available_quantity = inventory.quantity
+                inventory = inventory_map.get(inventory_item.id)
+                available_quantity = inventory.quantity if inventory else 0
 
-                    if available_quantity < required_quantity:
-                        insufficient_items.append({
-                            "recipe": recipe.name,
-                            "ingredient": inventory_item.name,
-                            "needed": str(required_quantity),
-                            "available": str(available_quantity),
-                            "unit": inventory_item.unit
-                        })
-                except Inventory.DoesNotExist:
+                if available_quantity < required_quantity:
                     insufficient_items.append({
                         "recipe": recipe.name,
                         "ingredient": inventory_item.name,
                         "needed": str(required_quantity),
-                        "available": "0",
+                        "available": str(available_quantity),
                         "unit": inventory_item.unit
                     })
 
