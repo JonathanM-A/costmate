@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from apps.users.models import OnboardingMetrics
-from apps.inventory.models import Supplier, InventoryItem
+from apps.inventory.models import Supplier, Inventory
 from apps.recipes.models import Recipe
 from apps.customers.models import Customer
 from apps.orders.models import Order, Overhead
@@ -50,7 +50,7 @@ class Command(BaseCommand):
                     updates["has_added_supplier"] = True
 
                 # Check has_added_inventory
-                has_inventory = InventoryItem.objects.filter(created_by=user).exists()
+                has_inventory = Inventory.objects.filter(created_by=user).exists()
                 if has_inventory and not metrics.has_added_inventory:
                     updates["has_added_inventory"] = True
 
