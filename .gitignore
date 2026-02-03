@@ -174,3 +174,4 @@ celerybeat*
 docker-compose.override.yml
 /beat
 /.claude
+EFFICIENCY_IMPROVEMENTS.md
