@@ -139,7 +139,7 @@ class RecipeService:
         ris.update(cost=F("quantity") * Coalesce(cost_subquery, Value(Decimal("0.00"))))
 
         updated = ris.filter(Q(cost=Decimal("0.00")) & Q(suggested_cost__gt=Decimal("0.00"))).update(
-            cost=F("suggested_cost")*F("quantity")
+            cost=F("suggested_cost")
         )
         
 
