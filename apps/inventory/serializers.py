@@ -125,13 +125,29 @@ class SupplierSerializer(serializers.ModelSerializer):
         return representation
 
 
+class InventoryItemLiteSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested use - avoids N+1 queries."""
+
+    class Meta:
+        model = InventoryItem
+        fields = ["id", "name", "unit", "is_default"]
+
+
+class SupplierLiteSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested use - avoids N+1 queries."""
+
+    class Meta:
+        model = Supplier
+        fields = ["id", "name", "contact"]
+
+
 class InventoryHistorySerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    inventory_item = InventoryItemSerializer(read_only=True)
+    inventory_item = InventoryItemLiteSerializer(read_only=True)
     inventory_item_id = serializers.PrimaryKeyRelatedField(
         queryset=InventoryItem.objects.all(), source="inventory_item", write_only=True
     )
-    supplier = SupplierSerializer(read_only=True)
+    supplier = SupplierLiteSerializer(read_only=True)
     supplier_id = serializers.PrimaryKeyRelatedField(
         queryset=Supplier.objects.all(),
         source="supplier",

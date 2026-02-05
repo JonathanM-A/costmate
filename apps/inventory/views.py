@@ -445,7 +445,7 @@ class InventoryView(ModelViewSet):
                 inventory_item=inventory.inventory_item, created_by=request.user
             )
             .order_by("-created_at")
-            .select_related("supplier")
+            .select_related("inventory_item", "supplier")
         )
         serializer = InventoryHistorySerializer(
             history, many=True, context={"request": request}
