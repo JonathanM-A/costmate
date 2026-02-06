@@ -42,7 +42,7 @@ def check_reorder_levels(self, order):
         ).count()
 
         if low_stock_count > 0:
-            target_url = settings.DOMAIN_NAME + reverse("inventory-stock-list") + "?below_reorder=true"
+            target_url = settings.BACKEND_DOMAIN_NAME + reverse("inventory-stock-list") + "?below_reorder=true"
             Notification.objects.create(
                 user=order.created_by,
                 notification_type="REORDER_CHECK",
@@ -112,7 +112,7 @@ def estimate_stock_days_remaining(self, order):
                         user=order.created_by,
                         notification_type="STOCK_ESTIMATE",
                         message=f"{inventory_item.name}: ~{int(days_remaining)} days of stock remaining",
-                        target_url=settings.DOMAIN_NAME + reverse("inventory-stock-list"),
+                        target_url=settings.BACKEND_DOMAIN_NAME + reverse("inventory-stock-list"),
                     )
     except Exception as e:
         logger.error(
