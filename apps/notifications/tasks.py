@@ -34,7 +34,7 @@ def check_upcoming_deliveries():
 
     notifications = []
     for order in upcoming_orders:
-        target_url = settings.DOMAIN_NAME + reverse("api:orders:orders-detail", kwargs={"version": "v1", "pk": order.id})
+        target_url = settings.BACKEND_DOMAIN_NAME + reverse("api:orders:orders-detail", kwargs={"version": "v1", "pk": order.id})
         notifications.append(
             Notification(
                 user=order.created_by,
@@ -59,7 +59,7 @@ def weekly_report_notifications():
     end_date = timezone.now().date()
     start_date = end_date - timedelta(days=7)
 
-    base_url = settings.DOMAIN_NAME + reverse("api:analytics:analytics", kwargs={"version": "v1"})
+    base_url = settings.BACKEND_DOMAIN_NAME + reverse("api:analytics:analytics", kwargs={"version": "v1"})
     query_params = (
         f"?start_date={start_date.isoformat()}&end_date={end_date.isoformat()}"
     )
