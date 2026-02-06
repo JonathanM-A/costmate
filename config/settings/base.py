@@ -427,6 +427,7 @@ TIER_PLAN_MAPPING = {
 DEFAULT_SUBSCRIPTION_PLAN = env("DEFAULT_SUBSCRIPTION_PLAN", default="UK_M")  # type: ignore
 TRIAL_PERIOD_DAYS = env.int("TRIAL_PERIOD_DAYS", default=30)  # type: ignore
 DOMAIN_NAME = env("DOMAIN_NAME", default="http://localhost:8000")  # type: ignore
+BACKEND_DOMAIN_NAME = env("BACKEND_DOMAIN_NAME", default="http://localhost:8000")  # type: ignore
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")  # type: ignore
 
 # Feature Flags
