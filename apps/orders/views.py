@@ -11,6 +11,7 @@ from .serializers import (
     OrderRecipe,
     Overhead,
     OverheadSerializer,
+    BulkOverheadUpdateSerializer,
 )
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
@@ -237,3 +238,16 @@ class OverheadViewSet(ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response({"overheads": serializer.data, **stats}, status=status.HTTP_200_OK)
+
+    @action(methods=["put"], detail=False, url_path="bulk-update")
+    def bulk_update(self, request, version):
+        serializer = BulkOverheadUpdateSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_overheads = serializer.update(None, serializer.validated_data)
+        update_onboarding_metric(request.user, "has_calculated_overhead")
+        return Response(
+            OverheadSerializer(updated_overheads, many=True, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
