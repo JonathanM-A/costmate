@@ -6,7 +6,7 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from apps.subscriptions.models import Subscription
-from .tasks import create_user_preferences, create_onboarding_metrics, send_welcome_email
+from .tasks import create_user_preferences, create_onboarding_metrics, send_welcome_email, create_default_overheads
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -18,6 +18,7 @@ def create_related_models(sender, instance, created, **kwargs):
     if created and not instance.is_superuser:
         create_user_preferences(instance.id)  # type: ignore
         create_onboarding_metrics(instance.id)  # type: ignore
+        create_default_overheads(instance.id)  # type: ignore
         send_welcome_email.delay(instance.id)  # type: ignore
         create_trial_subscription(instance)
 

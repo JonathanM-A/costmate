@@ -211,9 +211,12 @@ class OverheadSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
-        fields = "__all__"
         model = Overhead
-        read_only_fields = ["id", "created_at", "updated_at", "created_by"]
+        exclude = ["is_active", "created_at", "updated_at"]
+        read_only_fields = ["id"]
+
+    def validate_name(self, value):
+        return value.title()
 
     @property
     def currency(self):
@@ -230,3 +233,37 @@ class OverheadSerializer(serializers.ModelSerializer):
             Money(amount=instance.monthly_cost, currency=self.currency)
         )
         return representation
+
+
+class OverheadUpdateItemSerializer(serializers.Serializer):
+    id = serializers.PrimaryKeyRelatedField(queryset=Overhead.objects.all())
+    monthly_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    yearly_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        user = self.context["request"].user
+        if user and "id" in fields:
+            fields["id"].queryset = fields["id"].queryset.filter(created_by=user)
+        return fields
+
+
+class BulkOverheadUpdateSerializer(serializers.Serializer):
+    overheads = OverheadUpdateItemSerializer(many=True)
+
+    def update(self, instance, validated_data):
+        overheads_data = validated_data["overheads"]
+
+        updated_overheads = []
+        for item in overheads_data:
+            overhead = item["id"]
+            overhead.monthly_cost = item["monthly_cost"]
+            overhead.yearly_cost = item["yearly_cost"]
+            updated_overheads.append(overhead)
+
+        with transaction.atomic():
+            Overhead.objects.bulk_update(
+                updated_overheads, ["monthly_cost", "yearly_cost"]
+            )
+
+        return updated_overheads
