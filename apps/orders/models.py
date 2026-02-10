@@ -12,7 +12,7 @@ User = get_user_model()
 
 
 class Order(BaseModel):
-    order_no = models.CharField(unique=True, null=True, max_length=10)
+    order_no = models.CharField(null=True, max_length=10)
     customer = models.ForeignKey(
         Customer, on_delete=models.CASCADE, related_name="orders"
     )
@@ -124,6 +124,10 @@ class Order(BaseModel):
         User, on_delete=models.CASCADE, related_name="orders", blank=False
     )
 
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ("order_no", "created_by")
+
     def calculate_costs(self):
         """
         Calculate all order costs based on recipes, overhead, packaging, delivery, profit margin, discount and VAT.
@@ -228,7 +232,7 @@ class Order(BaseModel):
         Override save method to calculate costs and generate order number.
         """
         if not self.order_no:
-            last_order = Order.objects.order_by("created_at").last()
+            last_order = Order.objects.filter(created_by=self.created_by).order_by("created_at").last()
             if last_order:
                 last_order_no = int(last_order.order_no.split("-")[-1])  # type: ignore
                 self.order_no = f"ORD-{last_order_no + 1:05d}"
