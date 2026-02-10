@@ -26,8 +26,8 @@ def update_user_subscription(stripe_customer_id, mark_trial_used=False, **kwargs
         logger.info(f"User with Stripe Customer ID {stripe_customer_id} does not exist.")
         return
 
-    if mark_trial_used and not user.has_used_free_trial: # type: ignore
-        user.has_used_free_trial = True # type: ignore
+    if mark_trial_used and not user.has_used_free_trial:
+        user.has_used_free_trial = True
         user.save(update_fields=['has_used_free_trial'])
 
     subscription, created = Subscription.objects.update_or_create(user=user, defaults=kwargs)
@@ -202,7 +202,7 @@ def stripe_webhook(request, version):
                 message=f"Your free trial ends on {formatted_date}. Add a payment method to continue using COSTNAV.",
                 target_url=add_payment_url,
             )
-            logger.info(f"Trial ending notification created for user {user.id}") # type: ignore
+            logger.info(f"Trial ending notification created for user {user.id}")
 
             # Send email
             context = {

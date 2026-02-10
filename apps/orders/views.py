@@ -11,7 +11,6 @@ from .serializers import (
     OrderRecipe,
     Overhead,
     OverheadSerializer,
-    BulkOverheadUpdateSerializer,
 )
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
