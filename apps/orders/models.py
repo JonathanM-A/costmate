@@ -12,7 +12,7 @@ User = get_user_model()
 
 
 class Order(BaseModel):
-    order_no = models.CharField(unique=True, null=True, max_length=10)
+    order_no = models.CharField(null=True, max_length=10)
     customer = models.ForeignKey(
         Customer, on_delete=models.CASCADE, related_name="orders"
     )
@@ -123,6 +123,10 @@ class Order(BaseModel):
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="orders", blank=False
     )
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ("order_no", "created_by")
 
     def calculate_costs(self):
         """
