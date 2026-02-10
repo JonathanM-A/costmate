@@ -241,7 +241,7 @@ class Order(BaseModel):
         Override save method to calculate costs and generate order number.
         """
         if not self.order_no:
-            last_order = Order.objects.order_by("created_at").last()
+            last_order = Order.objects.filter(created_by=self.created_by).order_by("created_at").last()
             if last_order:
                 last_order_no = int(last_order.order_no.split("-")[-1])  # type: ignore
                 self.order_no = f"ORD-{last_order_no + 1:05d}"
