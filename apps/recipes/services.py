@@ -13,6 +13,7 @@ from .models import Recipe, RecipeInventory
 from ..inventory.models import Inventory, InventoryItem
 from ..inventory.services import InventoryUnitService
 from ..users.utils import get_user_preferrence_from_cache
+from ..products.services import ProductService
 
 
 class RecipeService:
@@ -67,6 +68,10 @@ class RecipeService:
 
                 instance.refresh_from_db()
                 instance.calculate_cost()
+
+            # Recalculate costs for products that use this recipe
+            ProductService.recalculate_products_for_recipe(instance.id)
+
             return instance
 
     @staticmethod
@@ -158,3 +163,6 @@ class RecipeService:
             Recipe.objects.filter(id__in=affected_recipe_ids).update(
                 total_cost=F("inventory_items_cost") + F("labour_cost")
             )
+
+            for recipe_id in affected_recipe_ids:
+                ProductService.recalculate_products_for_recipe(recipe_id)
