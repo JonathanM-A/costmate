@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from djmoney.money import Money
 from babel.numbers import get_currency_symbol
@@ -58,6 +59,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             cost_record.cost_per_unit if cost_record else Decimal("0.00")
         )
         return data
+
 
 class SupplierSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
@@ -272,7 +274,13 @@ class InventorySerializer(serializers.ModelSerializer):
             if not isinstance(quantity, (int, float)) or quantity <= 0:
                 raise serializers.ValidationError("Quantity must be a positive number.")
 
-            inventory_item_ids.append(inventory_item_id)
+            # Convert string UUID to UUID object for proper comparison
+            try:
+                inventory_item_ids.append(uuid.UUID(str(inventory_item_id)))
+            except ValueError:
+                raise serializers.ValidationError(
+                    f"Invalid inventory item id format: {inventory_item_id}"
+                )
 
         # Validate all inventory items exist in a single query
         valid_items = set(
