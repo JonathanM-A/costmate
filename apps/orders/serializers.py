@@ -4,28 +4,29 @@ from django.db.models import Q
 from rest_framework import serializers
 from ..users.utils import get_user_preferrence_from_cache
 from ..users.serializers import UserFormattedDate
-from .models import Order, Customer, Recipe, OrderRecipe, Overhead
+from .models import Order, Customer, OrderProduct, Overhead
+from ..products.models import Product
 
 
-class CustomerOrderRecipeSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for recipe names in customer order history."""
-    recipe_name = serializers.StringRelatedField(read_only=True, source="recipe")
+class CustomerOrderProductSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for product names in customer order history."""
+    product_name = serializers.StringRelatedField(read_only=True, source="product")
 
     class Meta:
-        model = OrderRecipe
-        fields = ["recipe_name"]
+        model = OrderProduct
+        fields = ["product_name"]
 
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     """Lightweight serializer for customer order history display."""
-    recipes = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
     delivery_date = UserFormattedDate(read_only=True)
     suggested_price = serializers.SerializerMethodField()
     preferred_final_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ["id", "order_no", "recipes", "suggested_price", "preferred_final_price", "delivery_date", "status"]
+        fields = ["id", "order_no", "products", "suggested_price", "preferred_final_price", "delivery_date", "status"]
         read_only_fields = fields
 
     @property
@@ -34,9 +35,9 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             self.context["request"].user.id, "currency", "USD"
         )
 
-    def get_recipes(self, obj):
-        order_recipes = getattr(obj, "prefetched_order_recipes", None) or obj.order_recipes.all()
-        return [or_.recipe.name for or_ in order_recipes]
+    def get_products(self, obj):
+        order_products = getattr(obj, "prefetched_order_products", None) or obj.order_products.all()
+        return [op.product.name for op in order_products]
 
     def get_suggested_price(self, obj):
         return str(Money(obj.suggested_price, self.currency))
@@ -47,14 +48,14 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         return None
 
 
-class OrderRecipeSerializer(serializers.ModelSerializer):
-    recipe_id = serializers.PrimaryKeyRelatedField(
-        queryset=Recipe.objects.all(), write_only=True, source="recipe"
+class OrderProductSerializer(serializers.ModelSerializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), write_only=True, source="product"
     )
-    recipe_name = serializers.StringRelatedField(read_only=True, source="recipe")
+    product_name = serializers.StringRelatedField(read_only=True, source="product")
 
     class Meta:
-        model = OrderRecipe
+        model = OrderProduct
         exclude = ["order"]
         read_only_fields = ["id", "line_cost", "order"]
 
@@ -68,8 +69,8 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
         fields = super().get_fields()
         user = self.context["request"].user
 
-        if user and "recipe_id" in fields:
-            fields["recipe_id"].queryset = fields["recipe_id"].queryset.filter(
+        if user and "product_id" in fields:
+            fields["product_id"].queryset = fields["product_id"].queryset.filter(
                 Q(is_active=True) | Q(created_by=user.id)
             )
         return fields
@@ -84,16 +85,17 @@ class OrderRecipeSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    recipes = serializers.ListField(
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    products = serializers.ListField(
         child=serializers.DictField(), min_length=1, write_only=True
     )
-    order_recipes = OrderRecipeSerializer(many=True, read_only=True)
+    order_products = OrderProductSerializer(many=True, read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     delivery_date = UserFormattedDate(allow_null=True, required=False)
 
     class Meta:
         model = Order
-        exclude = ["created_at", "updated_at", "created_by", "is_active"]
+        exclude = ["created_at", "updated_at", "is_active"]
         read_only_fields = [
             "id",
             "created_at",
@@ -141,38 +143,39 @@ class OrderSerializer(serializers.ModelSerializer):
         from ..notifications.models import Notification
         from django.contrib.contenttypes.models import ContentType
 
-        recipes = validated_data.pop("recipes")
+        products = validated_data.pop("products")
         user = self.context["request"].user
-        validated_data["created_by"] = user
+
+        validated_data.setdefault("profit_margin", get_user_preferrence_from_cache(user.id, "profit_margin", 20.00))
 
         with transaction.atomic():
             order_instance = Order.objects.create(**validated_data)
 
-            # Prefetch all recipes in one query to avoid N+1
-            recipe_ids = [recipe_data["recipe_id"] for recipe_data in recipes]
-            recipe_map = {
-                str(recipe_obj.id): recipe_obj
-                for recipe_obj in Recipe.objects.filter(id__in=recipe_ids)
+            # Prefetch all products in one query to avoid N+1
+            product_ids = [product_data["product_id"] for product_data in products]
+            product_map = {
+                str(product_obj.id): product_obj
+                for product_obj in Product.objects.filter(id__in=product_ids)
             }
 
-            order_recipes = [
-                OrderRecipe(
+            order_products = [
+                OrderProduct(
                     order=order_instance,
-                    recipe_id=recipe_data["recipe_id"],
-                    quantity=recipe_data.get("quantity", 1),
-                    line_cost=recipe_map[recipe_data["recipe_id"]].total_cost * recipe_data.get("quantity", 1),
+                    product_id=product_data["product_id"],
+                    quantity=product_data.get("quantity", 1),
+                    line_cost=product_map[product_data["product_id"]].total_cost * product_data.get("quantity", 1),
                 )
-                for recipe_data in recipes
+                for product_data in products
             ]
-            OrderRecipe.objects.bulk_create(order_recipes)
+            OrderProduct.objects.bulk_create(order_products)
             order_instance.save()
 
             # Check inventory availability and create notification if insufficient
             is_available, insufficient_items = order_instance.check_inventory_availability()
             if not is_available:
-                message = f"Order {order_instance.order_no} created but insufficient inventory for:\n"
+                message = f"Order {order_instance.order_no} created but insufficient inventory for: "
                 for item in insufficient_items:
-                    message += f"- {item['recipe']}: {item['ingredient']} (Need: {item['needed']}{item['unit']}, Available: {item['available']}{item['unit']})\n"
+                    message += f"- {item['product']}: {item['ingredient']} (Need: {item['needed']}{item['unit']}, Available: {item['available']}{item['unit']})"
 
                 Notification.objects.create(
                     user=user,
@@ -185,38 +188,38 @@ class OrderSerializer(serializers.ModelSerializer):
             return order_instance
 
     def update(self, instance, validated_data):
-        recipes = validated_data.pop("recipes", None)
+        products = validated_data.pop("products", None)
         validated_data["created_by"] = self.context["request"].user
 
         with transaction.atomic():
             instance = super().update(instance, validated_data)
 
-            if recipes is not None:
-                existing_recipes = set(
-                    instance.order_recipes.values_list("id", flat=True)
+            if products is not None:
+                existing_products = set(
+                    instance.order_products.values_list("id", flat=True)
                 )
 
-                # Prefetch all recipes in one query to avoid N+1
-                recipe_ids = [recipe_data["recipe_id"] for recipe_data in recipes]
-                recipe_map = {
-                    str(recipe_obj.id): recipe_obj
-                    for recipe_obj in Recipe.objects.filter(id__in=recipe_ids)
+                # Prefetch all products in one query to avoid N+1
+                product_ids = [product_data["product_id"] for product_data in products]
+                product_map = {
+                    str(product_obj.id): product_obj
+                    for product_obj in Product.objects.filter(id__in=product_ids)
                 }
 
-                new_recipes = [
-                    OrderRecipe(
+                new_products = [
+                    OrderProduct(
                         order=instance,
-                        recipe_id=recipe_data["recipe_id"],
-                        quantity=recipe_data.get("quantity", 1),
-                        line_cost=recipe_map[recipe_data["recipe_id"]].total_cost * recipe_data.get("quantity", 1),
+                        product_id=product_data["product_id"],
+                        quantity=product_data.get("quantity", 1),
+                        line_cost=product_map[product_data["product_id"]].total_cost * product_data.get("quantity", 1),
                     )
-                    for recipe_data in recipes
+                    for product_data in products
                 ]
-                OrderRecipe.objects.bulk_create(new_recipes)
+                OrderProduct.objects.bulk_create(new_products)
 
-                # Remove recipes that are no longer in the new list
-                if existing_recipes:
-                    OrderRecipe.objects.filter(id__in=existing_recipes).delete()
+                # Remove products that are no longer in the new list
+                if existing_products:
+                    OrderProduct.objects.filter(id__in=existing_products).delete()
 
                 instance.save()
 

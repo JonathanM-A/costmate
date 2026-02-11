@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from ..orders.models import Order, OrderRecipe
+from ..orders.models import Order, OrderProduct
 from ..orders.serializers import OrderSerializer
 from ..inventory.models import Inventory
 from ..users.utils import get_user_preferrence_from_cache
@@ -103,7 +103,7 @@ class DashboardView(APIView):
 
         completed_orders = Order.objects.filter(
             created_by=user, status="completed"
-        ).prefetch_related("order_recipes")
+        ).prefetch_related("order_products")
 
         # Use preferred_final_price if set, otherwise use suggested_price
         effective_price = Case(
@@ -139,13 +139,13 @@ class DashboardView(APIView):
 
         # fetch non-filterable fields
 
-        # Get ingredient and labour costs from OrderRecipe -> Recipe
-        recipe_stats = OrderRecipe.objects.filter(order__in=completed_orders).aggregate(
+        # Get ingredient and labour costs from OrderProduct -> Product
+        product_stats = OrderProduct.objects.filter(order__in=completed_orders).aggregate(
             ingredient_cost=MoneyAggregate(
-                F("recipe__inventory_items_cost") * F("quantity"), currency=currency
+                F("product__recipes_cost") * F("quantity"), currency=currency
             ),
             labour_cost=MoneyAggregate(
-                F("recipe__labour_cost") * F("quantity"), currency=currency
+                F("product__labour_cost") * F("quantity"), currency=currency
             ),
         )
         # Get overhead and packaging costs from Order model
@@ -153,11 +153,11 @@ class DashboardView(APIView):
             agg_overhead_cost=MoneyAggregate("overhead", currency=currency),
             agg_packaging_cost=MoneyAggregate("packaging", currency=currency),
         )
-        recipe_stats["overhead_cost"] = order_cost_stats["agg_overhead_cost"]
-        recipe_stats["packaging_cost"] = order_cost_stats["agg_packaging_cost"]
+        product_stats["overhead_cost"] = order_cost_stats["agg_overhead_cost"]
+        product_stats["packaging_cost"] = order_cost_stats["agg_packaging_cost"]
 
         # Combine results
-        results = {**order_stats, **recipe_stats}
+        results = {**order_stats, **product_stats}
 
         pending_orders = Order.objects.filter(
             created_by=self.request.user, status="pending"

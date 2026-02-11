@@ -8,7 +8,7 @@ from rest_framework import status
 from .serializers import (
     OrderSerializer,
     Order,
-    OrderRecipe,
+    OrderProduct,
     Overhead,
     OverheadSerializer,
     BulkOverheadUpdateSerializer,
@@ -28,7 +28,7 @@ class OrderViewSet(ModelViewSet):
         "delivery_date",
         "created_at",
         "customer__id",
-        "order_recipes__recipe__category__name",
+        "order_products__product__category__name",
     ]
 
     def get_queryset(self):  # type: ignore
@@ -46,9 +46,9 @@ class OrderViewSet(ModelViewSet):
             base_queryset.select_related("customer")
             .prefetch_related(
                 Prefetch(
-                    "order_recipes",
-                    queryset=OrderRecipe.objects.select_related("recipe"),
-                    to_attr="prefetched_order_recipes",
+                    "order_products",
+                    queryset=OrderProduct.objects.select_related("product"),
+                    to_attr="prefetched_order_products",
                 )
             )
             .order_by("delivery_date", "created_at")
@@ -151,10 +151,10 @@ class OrderViewSet(ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update inventory for each order recipe (use prefetched data)
-            order_recipes = getattr(order, 'prefetched_order_recipes', None) or order.order_recipes.all()
-            for order_recipe in order_recipes:
-                order_recipe.update_inventory(user)
+            # Update inventory for each order product (use prefetched data)
+            order_products = getattr(order, 'prefetched_order_products', None) or order.order_products.all()
+            for order_product in order_products:
+                order_product.update_inventory(user)
 
         elif new_status == "cancelled":
             if order.status == "completed":

@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from .serializers import Customer, CustomerSerializer, CustomerListSerializer
-from ..orders.models import Order, OrderRecipe
+from ..orders.models import Order, OrderProduct
 from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 from ..users.permissions import IsSubscriptionActive
 import logging
@@ -56,8 +56,8 @@ class CustomerViewset(ModelViewSet):
                     "orders",
                     queryset=Order.objects.filter(is_active=True).prefetch_related(
                         Prefetch(
-                            "order_recipes",
-                            queryset=OrderRecipe.objects.select_related("recipe"),
+                            "order_products",
+                            queryset=OrderProduct.objects.select_related("product"),
                         )
                     ),
                 )

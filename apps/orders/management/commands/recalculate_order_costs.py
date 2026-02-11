@@ -70,9 +70,9 @@ class Command(BaseCommand):
         for order in queryset.iterator():
             try:
                 with transaction.atomic():
-                    # Recalculate costs for each order recipe first
-                    for order_recipe in order.order_recipes.all():
-                        order_recipe.save()
+                    # Recalculate costs for each order product first
+                    for order_product in order.order_products.all():
+                        order_product.save()
 
                     # Then recalculate order costs
                     order.calculate_costs()
