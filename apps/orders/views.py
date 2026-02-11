@@ -225,15 +225,11 @@ class OverheadViewSet(ModelViewSet):
                 )
             ),
             "estimated_monthly_orders": estimated_monthly_orders,
-            "total_yearly_overhead": str(Money(total_monthly_value * 12, currency)),
+            "total_yearly_overhead": str(
+                Money(
+                    total_monthly_value * 12,
+                    currency,
+                )
+            ),
         }
-
-        page = self.paginate_queryset(qs)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-            response.data = {"overheads": response.data, **stats}
-            return response
-
-        serializer = self.get_serializer(qs, many=True)
-        return Response({"overheads": serializer.data, **stats}, status=status.HTTP_200_OK)
+        return Response(result.data, status=status.HTTP_200_OK)
