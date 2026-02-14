@@ -23,7 +23,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Customer
-        exclude = ["updated_at", "is_active", "created_at", "created_by"]
+        exclude = ["updated_at", "is_active", "created_at"]
         read_only_fields = ["id", "member_since", "orders"]
 
     @property
