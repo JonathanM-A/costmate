@@ -43,7 +43,7 @@ def get_user_preferrence_from_cache(user_id, preference_type, default):
             preferences = cache.get(cache_key)
         except UserPreferences.DoesNotExist:
             return default
-    return preferences.get(preference_type, default)
+    return preferences.get(preference_type, default) or default
 
 
 def update_onboarding_metric(user, metric_field):
