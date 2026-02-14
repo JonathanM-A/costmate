@@ -58,7 +58,7 @@ class Product(BaseModel):
     def calculate_costs(self):
         self.recipes_cost = sum([pr.cost for pr in self.product_recipes.all()]) # type: ignore
         self.recipes_count = self.product_recipes.count() #type: ignore
-        self.labour_cost = Decimal(self.labour_time.total_seconds() / 3600) * self.labour_rate if self.labour_time else Decimal("0.00")
+        self.labour_cost = Decimal(self.labour_time.total_seconds() / 3600) * Decimal(self.labour_rate) if self.labour_time else Decimal("0.00")
         self.total_cost = self.recipes_cost + self.labour_cost
     
     def save(self, *args, **kwargs):
