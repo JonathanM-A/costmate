@@ -11,7 +11,7 @@ from .serializers import (
     ProductCategorySerializer,
 )
 from ..users.permissions import IsSubscriptionActive
-from ..users.utils import get_user_preferrence_from_cache
+from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
 import logging
 
 logger = logging.Logger(__name__)
@@ -85,6 +85,19 @@ class ProductViewset(ModelViewSet):
         if self.action == "list":
             return ProductListSerializer
         return super().get_serializer_class()
+
+    def create(self, request, *args, **kwargs):
+        try:
+            response = super().create(request, *args, **kwargs)
+            if response.status_code == status.HTTP_201_CREATED:
+                update_onboarding_metric(request.user, "has_created_product")
+            return response
+        except Exception as e:
+            logger.error(f"Error creating product: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())

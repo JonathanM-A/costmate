@@ -194,9 +194,11 @@ class OnboardingMetrics(BaseModel):
     has_created_recipe = models.BooleanField(default=False)
     # Step 6: Calculate overhead
     has_calculated_overhead = models.BooleanField(default=False)
-    # Step 7: Add a customer
+    # Step 7: Create your first Product
+    has_created_product = models.BooleanField(default=False)
+    # Step 8: Add a customer
     has_added_customer = models.BooleanField(default=False)
-    # Step 8: Create your first order
+    # Step 9: Create your first order
     has_created_order = models.BooleanField(default=False)
 
     class Meta:
