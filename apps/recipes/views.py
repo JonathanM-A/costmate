@@ -1,6 +1,7 @@
 from djmoney.money import Money
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, Sum, Prefetch
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from .models import RecipeInventory
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -39,7 +40,13 @@ class RecipeViewset(ModelViewSet):
         )
 
         return (
-            base_queryset.prefetch_related("inventory_items", "ingredients")
+            base_queryset.prefetch_related(
+                "inventory_items",
+                Prefetch(
+                    "ingredients",
+                    queryset=RecipeInventory.objects.select_related("inventory_item"),
+                ),
+            )
             .select_related("created_by", "category")
             .order_by("name")
         )
@@ -63,26 +70,34 @@ class RecipeViewset(ModelViewSet):
             )
     
     def list(self, request, *args, **kwargs):
-        result = super().list(request, *args, **kwargs)
-        recipe_stats = self.get_queryset().aggregate(
+        queryset = self.filter_queryset(self.get_queryset())
+        currency = get_user_preferrence_from_cache(
+            request.user.id, "currency", default="USD"
+        )
+
+        recipe_stats = queryset.aggregate(
             total_recipes=Count("id"),
             total_drafts=Count("id", filter=Q(is_draft=True)),
             total_active=Count("id", filter=Q(is_draft=False)),
             total_cost=Sum("total_cost"),
         )
+        recipe_stats["total_cost"] = str(Money(recipe_stats["total_cost"] or 0, currency))
 
-        currency = get_user_preferrence_from_cache(
-            request.user.id, "currency", default="USD"
-        )
-        recipe_stats["total_cost"] = str(Money(
-            recipe_stats["total_cost"] or 0, currency
-        ))
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data = {
+                "recipes": response.data,
+                "stats": recipe_stats,
+            }
+            return response
 
-        result.data = {
-            "recipes": result.data,
-            "stats": {**recipe_stats},
-        }
-        return Response(result.data, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "recipes": serializer.data,
+            "stats": recipe_stats,
+        }, status=status.HTTP_200_OK)
     
 
     @action(detail=True, methods=["post"])
@@ -113,9 +128,18 @@ class SharedRecipeViewset(ReadOnlyModelViewSet):
     http_method_names = ["get"]
 
     def get_queryset(self):  # type: ignore
-        return Recipe.objects.filter(share_enabled=True).prefetch_related(
-            "inventory_items", "ingredients"
-        ).select_related("created_by", "category").order_by("name")
+        return (
+            Recipe.objects.filter(share_enabled=True)
+            .prefetch_related(
+                "inventory_items",
+                Prefetch(
+                    "ingredients",
+                    queryset=RecipeInventory.objects.select_related("inventory_item"),
+                ),
+            )
+            .select_related("created_by", "category")
+            .order_by("name")
+        )
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -146,11 +170,7 @@ class RecipeCategoryViewset(ModelViewSet):
             if user.is_superuser
             else RecipeCategory.objects.filter(created_by=user, is_active=True)
         )
-        return (
-            base_queryset.filter(created_by=user)
-            .select_related("created_by")
-            .order_by("name")
-        )
+        return base_queryset.select_related("created_by").order_by("name")
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -2,6 +2,7 @@ from urllib.parse import urlencode
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.conf import settings
+from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.shortcuts import redirect
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,10 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import RegisterView
-import google.oauth2.credentials
 import google.oauth2.id_token
 import google.auth.transport.requests
 from .serializers import (
@@ -52,88 +50,54 @@ class UserView(RetrieveUpdateAPIView):
         return User.objects.filter(id=self.request.user.id)  # type: ignore
 
 
-class CustomOAuth2Client(OAuth2Client):
-    """Custom OAuth2Client that handles duplicate scope_delimiter parameter"""
-
-    def __init__(self, *args, **kwargs):
-        # Remove scope_delimiter from kwargs if it exists to avoid duplicate parameter
-        kwargs.pop("scope_delimiter", None)
-        super().__init__(*args, **kwargs)
-
-
-# class GoogleLogin(SocialLoginView):
-#     adapter_class = GoogleOAuth2Adapter
-#     callback_url = env.str(
-#         "GOOGLE_CALLBACK_URL",
-#         default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
-#     )
-#     client_class = CustomOAuth2Client
-
-
 class GoogleLoginRedirector(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
         client_id = env("GOOGLE_CLIENT_ID")
-
         redirect_uri = env(
             "GOOGLE_CALLBACK_URL",
-            default="http://localhost:8000/accounts/google/login/callback/", #type:  ignore
+            default="http://localhost:8000/accounts/google/login/callback/",  # type: ignore
         )
+
+        signer = TimestampSigner()
+        state = signer.sign("google-oauth")
 
         params = {
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "client_id": client_id,
             "scope": "openid email profile",
-            "access_type": "offline",
-            "prompt": "consent",
+            "access_type": "online",
+            "prompt": "select_account",
+            "state": state,
         }
 
-
         google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-
-        full_auth_url = f"{google_auth_url}?{urlencode(params)}"
-
-
-        return redirect(full_auth_url)
+        return redirect(f"{google_auth_url}?{urlencode(params)}")
 
 
 class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
-    adapter_class = GoogleOAuth2Adapter
-
-    # def get(self, request, *args, **kwargs):
-    #     code = request.query_params.get("code")
-    #     if not code:
-    #         return Response(
-    #             {"error": "Code parameter is required"},
-    #             status=status.HTTP_400_BAD_REQUEST,
-    #         )
-    #     requests.post(, data={"code": code})
 
     def get(self, request, *args, **kwargs):
         try:
+            # Verify state parameter to prevent CSRF
+            state = request.query_params.get("state")
+            if not state:
+                return redirect(f"{settings.DOMAIN_NAME}/login?error=invalid_state")
+            try:
+                signer = TimestampSigner()
+                signer.unsign(state, max_age=300)  # 5 minute expiry
+            except (BadSignature, SignatureExpired):
+                logger.warning("Google OAuth state invalid or expired")
+                return redirect(f"{settings.DOMAIN_NAME}/login?error=invalid_state")
+
             code = request.query_params.get("code")
             if not code:
-                return Response(
-                    {"error": "Code parameter is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # redirect_uri = request.query_params.get("redirect_uri")
-            # if not redirect_uri:
-            #     return Response(
-            #         {
-            #             "error": "redirect_uri parameter is required"
-            #         }, status=status.HTTP_400_BAD_REQUEST
-            #     )
-            
-            # if redirect_uri != env("GOOGLE_CALLBACK_URL"):
-            #     return Response(
-            #         {"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST
-            #     )
+                return redirect(f"{settings.DOMAIN_NAME}/login?error=missing_code")
 
-            # Get Google OAuth2 tokens
+            # Exchange authorization code for tokens
             token_endpoint = "https://oauth2.googleapis.com/token"
             client_id = env("GOOGLE_CLIENT_ID")
             client_secret = env("GOOGLE_CLIENT_SECRET")
@@ -155,15 +119,9 @@ class GoogleCallbackView(APIView):
 
             if token_response.status_code != 200:
                 logger.error(f"Google token error: {token_response.text}")
-                return Response(
-                    {"error": "Failed to get Google token"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return redirect(f"{settings.DOMAIN_NAME}/login?error=token_exchange_failed")
 
-            # Get user info from Google
-            credentials = google.oauth2.credentials.Credentials(
-                token_response.json()["access_token"]
-            )
+            # Verify ID token with Google's public keys
             request_session = google.auth.transport.requests.Request()
             id_token = token_response.json()["id_token"]
             id_info = google.oauth2.id_token.verify_oauth2_token(
@@ -180,29 +138,20 @@ class GoogleCallbackView(APIView):
                     first_name=id_info.get("given_name", ""),
                     last_name=id_info.get("family_name", ""),
                 )
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
 
-            # Generate JWT tokens
+            # Generate JWT tokens and redirect to frontend
             refresh = RefreshToken.for_user(user)
-
-            return Response(
-                {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                    "user": {
-                        "pk": user.id,  # type: ignore
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                    },
-                },
-                status=status.HTTP_200_OK,
-            )
+            params = urlencode({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            })
+            return redirect(f"{settings.DOMAIN_NAME}/auth/callback?{params}")
 
         except Exception as e:
             logger.error(f"Google callback error: {str(e)}")
-            return Response(
-                {"error": "Authentication failed"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return redirect(f"{settings.DOMAIN_NAME}/login?error=auth_failed")
 
 
 class SessionView(APIView):

@@ -8,9 +8,10 @@ from rest_framework import status
 from .serializers import (
     OrderSerializer,
     Order,
-    OrderRecipe,
+    OrderProduct,
     Overhead,
     OverheadSerializer,
+    BulkOverheadUpdateSerializer,
 )
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
@@ -27,7 +28,7 @@ class OrderViewSet(ModelViewSet):
         "delivery_date",
         "created_at",
         "customer__id",
-        "order_recipes__recipe__category__name",
+        "order_products__product__category__name",
     ]
 
     def get_queryset(self):  # type: ignore
@@ -45,9 +46,9 @@ class OrderViewSet(ModelViewSet):
             base_queryset.select_related("customer")
             .prefetch_related(
                 Prefetch(
-                    "order_recipes",
-                    queryset=OrderRecipe.objects.select_related("recipe"),
-                    to_attr="prefetched_order_recipes",
+                    "order_products",
+                    queryset=OrderProduct.objects.select_related("product"),
+                    to_attr="prefetched_order_products",
                 )
             )
             .order_by("delivery_date", "created_at")
@@ -78,13 +79,11 @@ class OrderViewSet(ModelViewSet):
         return Response(results.data, status=status.HTTP_200_OK)
 
     def list(self, request, *args, **kwargs):
-        result = super().list(request, *args, **kwargs)
+        queryset = self.filter_queryset(self.get_queryset())
+        tax_enabled = get_user_preferrence_from_cache(request.user.id, "tax_enabled", False)
+        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
-        tax_enabled = get_user_preferrence_from_cache(
-            request.user.id, "tax_enabled", False
-        )
-
-        order_stats = self.get_queryset().aggregate(
+        order_stats = queryset.aggregate(
             total_orders=Count("id", filter=Q(status__in=["completed", "pending"])),
             total_pending=Count("id", filter=Q(status="pending")),
             due_today=Count(
@@ -98,8 +97,6 @@ class OrderViewSet(ModelViewSet):
             total_cost=Sum("total_cost", filter=Q(status="completed")),
         )
 
-        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
-
         total_revenue = order_stats["total_revenue"] or 0
         total_cost = order_stats["total_cost"] or 0
         total_profit = total_revenue - total_cost
@@ -108,12 +105,23 @@ class OrderViewSet(ModelViewSet):
         order_stats["total_cost"] = str(Money(total_cost, currency))
         order_stats["total_profit"] = str(Money(total_profit, currency))
 
-        result.data = {
-            "orders": result.data,
-            "stats": {**order_stats},
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data = {
+                "orders": response.data,
+                "stats": order_stats,
+                "tax_enabled": tax_enabled,
+            }
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "orders": serializer.data,
+            "stats": order_stats,
             "tax_enabled": tax_enabled,
-        }
-        return Response(result.data, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
     @action(methods=["patch"], detail=True, url_path="update-status")
     def update_status(self, request, pk=None, **kwargs):
@@ -143,9 +151,10 @@ class OrderViewSet(ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update inventory for each order recipe
-            for order_recipe in order.order_recipes.all():
-                order_recipe.update_inventory(user)
+            # Update inventory for each order product (use prefetched data)
+            order_products = getattr(order, 'prefetched_order_products', None) or order.order_products.all()
+            for order_product in order_products:
+                order_product.update_inventory(user)
 
         elif new_status == "cancelled":
             if order.status == "completed":
@@ -201,35 +210,44 @@ class OverheadViewSet(ModelViewSet):
         return response
 
     def list(self, request, *args, **kwargs):
-        result = super().list(request, *args, **kwargs)
-
+        queryset = self.filter_queryset(self.get_queryset())
         estimated_monthly_orders = get_user_preferrence_from_cache(
             request.user.id, "estimated_monthly_orders", 10
         )
         currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
 
-        qs = self.get_queryset()
-        total_monthly_value = qs.aggregate(total=Sum("monthly_cost"))["total"] or 0
+        total_monthly_value = queryset.aggregate(total=Sum("monthly_cost"))["total"] or 0
         estimated_overhead_per_order = (
             (total_monthly_value / estimated_monthly_orders)
             if estimated_monthly_orders > 0
             else 0
         )
 
-        result.data = {
-            "overheads": result.data,
-            "estimated_overhead_per_order": str(
-                Money(
-                    estimated_overhead_per_order,
-                    currency,
-                )
-            ),
+        stats = {
+            "estimated_overhead_per_order": str(Money(estimated_overhead_per_order, currency)),
             "estimated_monthly_orders": estimated_monthly_orders,
-            "total_yearly_overhead": str(
-                Money(
-                    total_monthly_value * 12,
-                    currency,
-                )
-            ),
+            "total_yearly_overhead": str(Money(total_monthly_value * 12, currency)),
         }
-        return Response(result.data, status=status.HTTP_200_OK)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data = {"overheads": response.data, **stats}
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"overheads": serializer.data, **stats}, status=status.HTTP_200_OK)
+
+    @action(methods=["put"], detail=False, url_path="bulk-update")
+    def bulk_update(self, request, version):
+        serializer = BulkOverheadUpdateSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_overheads = serializer.update(None, serializer.validated_data)
+        update_onboarding_metric(request.user, "has_calculated_overhead")
+        return Response(
+            OverheadSerializer(updated_overheads, many=True, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )

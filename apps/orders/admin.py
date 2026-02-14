@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Order, OrderRecipe
+from .models import Order, OrderProduct
 
 
-class RecipeInline(admin.TabularInline):
-    model = OrderRecipe
+class ProductInline(admin.TabularInline):
+    model = OrderProduct
     extra = 1
     readonly_fields = ("line_cost",)
 
@@ -21,7 +21,7 @@ class OrderAdmin(admin.ModelAdmin):
     )
     search_fields = ("order_no", "customer__name")
     list_filter = ("status", "delivery_date", "created_at")
-    inlines = [RecipeInline]
+    inlines = [ProductInline]
     ordering = ("-created_at",)
     readonly_fields = (
         "created_at",
@@ -70,17 +70,17 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(OrderRecipe)
-class OrderRecipeAdmin(admin.ModelAdmin):
-    list_display = ("order__order_no", "recipe", "quantity", "line_cost")
-    search_fields = ("order__order_no", "recipe__name")
+@admin.register(OrderProduct)
+class OrderProductAdmin(admin.ModelAdmin):
+    list_display = ("order__order_no", "product", "quantity", "line_cost")
+    search_fields = ("order__order_no", "product__name")
     readonly_fields = ("line_cost",)
 
     fieldsets = (
         (
-            "Order Recipe Information",
+            "Order Product Information",
             {
-                "fields": ("order", "recipe", "quantity", "line_cost"),
+                "fields": ("order", "product", "quantity", "line_cost"),
             },
         ),
     )

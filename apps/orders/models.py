@@ -5,8 +5,7 @@ from decimal import Decimal
 from uuid import uuid4
 from ..common.models import BaseModel
 from ..customers.models import Customer
-from ..recipes.models import Recipe
-from ..users.utils import get_user_preferrence_from_cache
+from ..products.models import Product
 
 User = get_user_model()
 
@@ -16,8 +15,8 @@ class Order(BaseModel):
     customer = models.ForeignKey(
         Customer, on_delete=models.CASCADE, related_name="orders"
     )
-    recipes = models.ManyToManyField(
-        Recipe, through="OrderRecipe", related_name="orders"
+    products = models.ManyToManyField(
+        Product, through="OrderProduct", related_name="orders"
     )
 
     # Pricing fields
@@ -26,7 +25,7 @@ class Order(BaseModel):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Sum of all recipe costs"
+        help_text="Sum of all product costs"
     )
     overhead = models.DecimalField(
         max_digits=10,
@@ -130,10 +129,10 @@ class Order(BaseModel):
 
     def calculate_costs(self):
         """
-        Calculate all order costs based on recipes, overhead, packaging, delivery, profit margin, discount and VAT.
+        Calculate all order costs based on products, overhead, packaging, delivery, profit margin, discount and VAT.
 
         Calculation flow:
-        1. Subtotal = sum of (recipe.total_cost * quantity) for all order recipes
+        1. Subtotal = sum of (product.total_cost * quantity) for all order products
         2. Overhead Amount = Overhead value (or Subtotal * Overhead / 100 if percentage)
         3. Packaging Amount = Packaging value (or Subtotal * Packaging / 100 if percentage)
         4. Total Cost = Subtotal + Overhead Amount + Packaging Amount + Delivery Cost
@@ -143,9 +142,9 @@ class Order(BaseModel):
         8. VAT Amount = Final Price * VAT Rate / 100
         9. Suggested Price = Final Price + VAT Amount
         """
-        # Calculate subtotal from recipe costs
+        # Calculate subtotal from product costs
         self.subtotal = sum(
-            order_recipe.line_cost for order_recipe in self.order_recipes.all()  # type: ignore
+            order_product.line_cost for order_product in self.order_products.all()  # type: ignore
         )
 
         # Calculate overhead amount
@@ -187,43 +186,78 @@ class Order(BaseModel):
         Check if there is sufficient inventory to fulfill the order.
         Returns tuple: (bool: is_available, list: insufficient_items)
 
-        insufficient_items format: [{"recipe": recipe_name, "ingredient": ingredient_name, "needed": amount, "available": amount}]
+        insufficient_items format: [{"product": product_name, "ingredient": ingredient_name, "needed": amount, "available": amount}]
         """
         from ..inventory.models import Inventory
+        from ..recipes.models import RecipeInventory
+        from ..products.models import ProductRecipes
 
         insufficient_items = []
 
-        for order_recipe in self.order_recipes.all():  # type: ignore
-            recipe = order_recipe.recipe
-            quantity_multiplier = order_recipe.quantity
-
-            for recipe_inventory in recipe.ingredients.all():
-                inventory_item = recipe_inventory.inventory_item
-                required_quantity = recipe_inventory.quantity * quantity_multiplier
-
-                try:
-                    inventory = Inventory.objects.get(
-                        inventory_item=inventory_item,
-                        created_by=self.created_by
+        # Prefetch order products with full chain: product -> product_recipes -> recipe -> ingredients
+        order_products = self.order_products.select_related("product").prefetch_related(  # type: ignore
+            models.Prefetch(
+                "product__product_recipes",
+                queryset=ProductRecipes.objects.select_related("recipe").prefetch_related(
+                    models.Prefetch(
+                        "recipe__ingredients",
+                        queryset=RecipeInventory.objects.select_related("inventory_item"),
                     )
-                    available_quantity = inventory.quantity
+                ),
+            )
+        )
 
-                    if available_quantity < required_quantity:
-                        insufficient_items.append({
-                            "recipe": recipe.name,
-                            "ingredient": inventory_item.name,
-                            "needed": str(required_quantity),
-                            "available": str(available_quantity),
-                            "unit": inventory_item.unit
-                        })
-                except Inventory.DoesNotExist:
-                    insufficient_items.append({
-                        "recipe": recipe.name,
-                        "ingredient": inventory_item.name,
-                        "needed": str(required_quantity),
-                        "available": "0",
-                        "unit": inventory_item.unit
-                    })
+        # Build aggregated requirements: {inventory_item_id: {"quantity": total, "item": item, "products": [names]}}
+        required_quantities = {}
+        inventory_item_ids = set()
+
+        for order_product in order_products:
+            product = order_product.product
+            order_qty = order_product.quantity
+
+            for product_recipe in product.product_recipes.all():
+                recipe_qty = product_recipe.quantity
+
+                for recipe_inventory in product_recipe.recipe.ingredients.all():
+                    inv_item_id = recipe_inventory.inventory_item_id
+                    inventory_item_ids.add(inv_item_id)
+
+                    # Total required = order_qty * recipe_qty * ingredient_qty
+                    required = order_qty * recipe_qty * recipe_inventory.quantity
+
+                    if inv_item_id in required_quantities:
+                        required_quantities[inv_item_id]["quantity"] += required
+                        if product.name not in required_quantities[inv_item_id]["products"]:
+                            required_quantities[inv_item_id]["products"].append(product.name)
+                    else:
+                        required_quantities[inv_item_id] = {
+                            "quantity": required,
+                            "item": recipe_inventory.inventory_item,
+                            "products": [product.name],
+                        }
+
+        # Fetch all relevant inventory records in one query
+        inventory_map = {
+            inv.inventory_item_id: inv
+            for inv in Inventory.objects.filter(
+                inventory_item_id__in=inventory_item_ids,
+                created_by=self.created_by
+            )
+        }
+
+        # Check availability
+        for inv_item_id, data in required_quantities.items():
+            inventory = inventory_map.get(inv_item_id)
+            available_quantity = inventory.quantity if inventory else 0
+
+            if available_quantity < data["quantity"]:
+                insufficient_items.append({
+                    "product": ", ".join(data["products"]),
+                    "ingredient": data["item"].name,
+                    "needed": str(data["quantity"]),
+                    "available": str(available_quantity),
+                    "unit": data["item"].unit
+                })
 
         return (len(insufficient_items) == 0, insufficient_items)
 
@@ -242,13 +276,13 @@ class Order(BaseModel):
         super().save(*args, **kwargs)
 
 
-class OrderRecipe(models.Model):
+class OrderProduct(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False, unique=True)
     order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, related_name="order_recipes"
+        Order, on_delete=models.CASCADE, related_name="order_products"
     )
-    recipe = models.ForeignKey(
-        Recipe, on_delete=models.CASCADE, related_name="order_recipes"
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="order_products"
     )
     quantity = models.PositiveIntegerField(default=1)
     line_cost = models.DecimalField(
@@ -256,17 +290,17 @@ class OrderRecipe(models.Model):
         decimal_places=2,
         default=Decimal(0.00),
         validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Recipe total cost * quantity"
+        help_text="Product total cost * quantity"
     )
 
     class Meta:
-        unique_together = ("order", "recipe")
+        unique_together = ("order", "product")
 
     def calculate_price(self):
         """
-        Calculate the line cost based on recipe's total cost and quantity.
+        Calculate the line cost based on product's total cost and quantity.
         """
-        self.line_cost = self.recipe.total_cost * self.quantity
+        self.line_cost = self.product.total_cost * self.quantity
 
     def save(self, *args, **kwargs):
         """
@@ -277,14 +311,15 @@ class OrderRecipe(models.Model):
 
     def update_inventory(self, user):
         """
-        Update the inventory based on the quantity change.
-        This method should be called when the order recipe is created or updated.
+        Update inventory based on all recipe ingredients within this product.
+        Traverses: Product -> ProductRecipes -> Recipe -> RecipeInventory -> Inventory
         """
-        recipe_ingredients = self.recipe.ingredients.all()  # type: ignore
-        for ingredient in recipe_ingredients:
-            inventory = ingredient.inventory_item.inventory.get(created_by=user)
-            inventory.quantity -= ingredient.quantity * self.quantity
-            inventory.save()
+        for product_recipe in self.product.product_recipes.all():
+            recipe_qty = product_recipe.quantity
+            for ingredient in product_recipe.recipe.ingredients.all():
+                inventory = ingredient.inventory_item.inventory.get(created_by=user)
+                inventory.quantity -= ingredient.quantity * recipe_qty * self.quantity
+                inventory.save()
 
 
 class Overhead(BaseModel):

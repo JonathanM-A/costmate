@@ -77,6 +77,7 @@ LOCAL_APPS = [
     "apps.customers.apps.CustomersConfig",
     "apps.inventory.apps.InventoryConfig",
     "apps.recipes.apps.RecipesConfig",
+    "apps.products.apps.ProductsConfig",
     "apps.orders.apps.OrdersConfig",
     "apps.notifications.apps.NotificationsConfig",
     "apps.dashboard.apps.DashboardConfig",

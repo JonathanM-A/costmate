@@ -27,9 +27,11 @@ def check_reorder_levels(self, order):
         if not notification_pref.get("stock_alerts", True):
             return
 
-        # Get all InventoryItems used in the order
+        # Get all InventoryItems used in the order (traverse: order -> products -> recipes -> ingredients)
         inventory_item_ids = (
-            RecipeInventory.objects.filter(recipe__order_recipes__order=order)
+            RecipeInventory.objects.filter(
+                recipe__recipe_products__product__order_products__order=order
+            )
             .values_list("inventory_item_id", flat=True)
             .distinct()
         )
@@ -64,12 +66,16 @@ def update_inventory_quantity(self, order, user):
     retry_info = f" (Attempt {self.request.retries + 1} of {self.max_retries})"
 
     try:
-        for order_recipe in order.order_recipes.all():
-            recipe_ingredients = order_recipe.recipe.ingredients.all()
-            for ingredient in recipe_ingredients:
-                inventory = ingredient.inventory_item.inventory.get(created_by=user)
-                inventory.quantity -= ingredient.quantity * order_recipe.quantity
-                inventory.save()
+        # Traverse: order -> products -> product_recipes -> recipe -> ingredients
+        for order_product in order.order_products.all():
+            order_qty = order_product.quantity
+            for product_recipe in order_product.product.product_recipes.all():
+                recipe_qty = product_recipe.quantity
+                for ingredient in product_recipe.recipe.ingredients.all():
+                    inventory = ingredient.inventory_item.inventory.get(created_by=user)
+                    # Deduct: order_qty * product_recipe_qty * ingredient_qty
+                    inventory.quantity -= ingredient.quantity * recipe_qty * order_qty
+                    inventory.save()
     except Exception as e:
         logger.error(f"Error updating inventory for order {order.id}: {e}{retry_info}")
         self.retry(exc=e)
@@ -82,38 +88,56 @@ def estimate_stock_days_remaining(self, order):
     retry_info = f" (Attempt {self.request.retries + 1} of {self.max_retries})"
     
     try:
+        from ..products.models import ProductRecipes
+
         ninety_days_ago = timezone.now() - timedelta(days=90)
-        
-        for order_recipe in order.order_recipes.all():
-            for ingredient in order_recipe.recipe.ingredients.all():
-                inventory_item = ingredient.inventory_item
-                inventory = inventory_item.inventory.get(created_by=order.created_by)
-                
-                # Calculate average daily usage over past 90 days
-                completed_orders = order_recipe.recipe.order_recipes.filter(
-                    order__created_at__gte=ninety_days_ago,
-                    order__status="completed"
-                )
-                
-                total_used = sum(
-                    ing.quantity * or_recipe.quantity
-                    for or_recipe in completed_orders
-                    for ing in or_recipe.recipe.ingredients.filter(
-                        inventory_item=inventory_item
-                    )
-                )
-                
-                avg_daily_usage = total_used / 90
-                
-                if avg_daily_usage > 0:
-                    days_remaining = inventory.quantity / avg_daily_usage
-                    
-                    Notification.objects.create(
-                        user=order.created_by,
-                        notification_type="STOCK_ESTIMATE",
-                        message=f"{inventory_item.name}: ~{int(days_remaining)} days of stock remaining",
-                        target_url=settings.BACKEND_DOMAIN_NAME + reverse("inventory-stock-list"),
-                    )
+
+        # Track processed inventory items to avoid duplicates
+        processed_items = set()
+
+        # Traverse: order -> products -> product_recipes -> recipe -> ingredients
+        for order_product in order.order_products.all():
+            for product_recipe in order_product.product.product_recipes.all():
+                for ingredient in product_recipe.recipe.ingredients.all():
+                    inventory_item = ingredient.inventory_item
+
+                    # Skip if already processed
+                    if inventory_item.id in processed_items:
+                        continue
+                    processed_items.add(inventory_item.id)
+
+                    inventory = inventory_item.inventory.get(created_by=order.created_by)
+
+                    # Calculate average daily usage over past 90 days
+                    # Find all completed orders using this inventory item via products
+                    total_used = 0
+                    recipe_inventories = RecipeInventory.objects.filter(
+                        inventory_item=inventory_item,
+                        recipe__recipe_products__product__order_products__order__created_at__gte=ninety_days_ago,
+                        recipe__recipe_products__product__order_products__order__status="completed",
+                        recipe__recipe_products__product__order_products__order__created_by=order.created_by,
+                    ).select_related("recipe")
+
+                    for ri in recipe_inventories:
+                        # Get all product_recipes and order_products for this recipe
+                        for pr in ri.recipe.recipe_products.all():
+                            for op in pr.product.order_products.filter(
+                                order__created_at__gte=ninety_days_ago,
+                                order__status="completed",
+                            ):
+                                total_used += ri.quantity * pr.quantity * op.quantity
+
+                    avg_daily_usage = total_used / 90
+
+                    if avg_daily_usage > 0:
+                        days_remaining = inventory.quantity / avg_daily_usage
+
+                        Notification.objects.create(
+                            user=order.created_by,
+                            notification_type="STOCK_ESTIMATE",
+                            message=f"{inventory_item.name}: ~{int(days_remaining)} days of stock remaining",
+                            target_url=settings.BACKEND_DOMAIN_NAME + reverse("inventory-stock-list"),
+                        )
     except Exception as e:
         logger.error(
             f"Error estimating stock days for order {order.id}: {e}{retry_info}"

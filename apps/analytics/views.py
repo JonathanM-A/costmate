@@ -129,7 +129,7 @@ class AnalyticsView(APIView):
             status="completed",
             created_at__gte=start_date,
             created_at__lte=end_date,
-        ).prefetch_related("order_recipes")
+        ).prefetch_related("order_products")
 
         # Use preferred_final_price if set, otherwise use suggested_price
         effective_price = Case(
@@ -159,13 +159,13 @@ class AnalyticsView(APIView):
             )
 
             # Calculate line revenue as: line_cost * (1 + profit_margin / 100)
-            line_revenue_expr = F("order_recipes__line_cost") * (
+            line_revenue_expr = F("order_products__line_cost") * (
                 Value(1) + F("profit_margin") / Value(100)
             )
 
-            revenue_by_recipe_category = (
+            revenue_by_product_category = (
                 completed_orders.annotate(
-                    category_name=F("order_recipes__recipe__category__name")
+                    category_name=F("order_products__product__category__name")
                 )
                 .values("category_name")
                 .annotate(
@@ -193,10 +193,10 @@ class AnalyticsView(APIView):
                 .order_by("-total_revenue_amount")
             )
 
-            recipe_stats = (
-                completed_orders.values("order_recipes__recipe__name")
+            product_stats = (
+                completed_orders.values("order_products__product__name")
                 .annotate(
-                    total_quantity_sold=Sum("order_recipes__quantity"),
+                    total_quantity_sold=Sum("order_products__quantity"),
                     total_revenue=MoneyAggregate(line_revenue_expr, currency=currency),
                     profit_margin=Avg("profit_margin"),
                 )
@@ -210,8 +210,8 @@ class AnalyticsView(APIView):
                 "total_customers": 0,
             }
             profit_stats = []
-            revenue_by_recipe_category = []
-            recipe_stats = []
+            revenue_by_product_category = []
+            product_stats = []
 
         # Inventory turnover calculation
         inventory_stats = calculate_inventory_turnover(
@@ -225,8 +225,8 @@ class AnalyticsView(APIView):
             {
                 "order_stats": order_stats,
                 "profit_stats": list(profit_stats),
-                "revenue_by_recipe_category": list(revenue_by_recipe_category),
-                "top_recipes": list(recipe_stats),
+                "revenue_by_product_category": list(revenue_by_product_category),
+                "top_products": list(product_stats),
                 "inventory_stats": inventory_stats,
             },
             status=status.HTTP_200_OK,
@@ -324,14 +324,14 @@ class AnalyticsExportView(APIView):
                 status="completed",
                 created_at__gte=start_date,
                 created_at__lte=end_date,
-            ).prefetch_related("order_recipes")
+            ).prefetch_related("order_products")
 
             effective_price = Case(
                 When(preferred_final_price__isnull=False, then=F("preferred_final_price")),
                 default=F("suggested_price"),
             )
             profit_expr = effective_price - F("total_cost")
-            line_revenue_expr = F("order_recipes__line_cost") * (
+            line_revenue_expr = F("order_products__line_cost") * (
                 Value(1) + F("profit_margin") / Value(100)
             )
 
@@ -343,19 +343,19 @@ class AnalyticsExportView(APIView):
                     total_customers=Count("customer", distinct=True),
                 )
 
-                revenue_by_recipe_category = list(
+                revenue_by_product_category = list(
                     completed_orders.annotate(
-                        category_name=F("order_recipes__recipe__category__name")
+                        category_name=F("order_products__product__category__name")
                     )
                     .values("category_name")
                     .annotate(total_revenue=Sum(line_revenue_expr))
                     .order_by("-total_revenue")
                 )
 
-                top_recipes = list(
-                    completed_orders.values("order_recipes__recipe__name")
+                top_products = list(
+                    completed_orders.values("order_products__product__name")
                     .annotate(
-                        total_quantity_sold=Sum("order_recipes__quantity"),
+                        total_quantity_sold=Sum("order_products__quantity"),
                         total_revenue=Sum(line_revenue_expr),
                         profit_margin=Avg("profit_margin"),
                     )
@@ -368,8 +368,8 @@ class AnalyticsExportView(APIView):
                     "total_profit": 0,
                     "total_customers": 0,
                 }
-                revenue_by_recipe_category = []
-                top_recipes = []
+                revenue_by_product_category = []
+                top_products = []
 
             inventory_stats = calculate_inventory_turnover(
                 user, start_date, end_date, currency
@@ -385,16 +385,16 @@ class AnalyticsExportView(APIView):
                 return self._export_csv(
                     filename,
                     order_stats,
-                    revenue_by_recipe_category,
-                    top_recipes,
+                    revenue_by_product_category,
+                    top_products,
                     inventory_stats,
                 )
             else:
                 return self._export_excel(
                     filename,
                     order_stats,
-                    revenue_by_recipe_category,
-                    top_recipes,
+                    revenue_by_product_category,
+                    top_products,
                     inventory_stats,
                 )
         except Exception as e:
@@ -406,7 +406,7 @@ class AnalyticsExportView(APIView):
         filename,
         order_stats,
         revenue_by_category,
-        top_recipes,
+        top_products,
         inventory_stats,
     ):
         output = io.StringIO()
@@ -429,11 +429,11 @@ class AnalyticsExportView(APIView):
             writer.writerow([item["category_name"] or "Uncategorized", item["total_revenue"]])
         writer.writerow([])
 
-        writer.writerow(["TOP RECIPES"])
-        writer.writerow(["Recipe", "Quantity Sold", "Revenue", "Profit Margin %"])
-        for item in top_recipes:
+        writer.writerow(["TOP PRODUCTS"])
+        writer.writerow(["Product", "Quantity Sold", "Revenue", "Profit Margin %"])
+        for item in top_products:
             writer.writerow([
-                item["order_recipes__recipe__name"],
+                item["order_products__product__name"],
                 item["total_quantity_sold"],
                 item["total_revenue"],
                 round(item["profit_margin"], 2) if item["profit_margin"] else 0,
@@ -455,7 +455,7 @@ class AnalyticsExportView(APIView):
         filename,
         order_stats,
         revenue_by_category,
-        top_recipes,
+        top_products,
         inventory_stats,
     ):
         from openpyxl import Workbook
@@ -502,15 +502,15 @@ class AnalyticsExportView(APIView):
             row += 1
         row += 1
 
-        ws.cell(row=row, column=1, value="TOP RECIPES").font = bold_font
+        ws.cell(row=row, column=1, value="TOP PRODUCTS").font = bold_font
         row += 1
-        ws.cell(row=row, column=1, value="Recipe").font = bold_font
+        ws.cell(row=row, column=1, value="Product").font = bold_font
         ws.cell(row=row, column=2, value="Quantity Sold").font = bold_font
         ws.cell(row=row, column=3, value="Revenue").font = bold_font
         ws.cell(row=row, column=4, value="Profit Margin %").font = bold_font
         row += 1
-        for item in top_recipes:
-            ws.cell(row=row, column=1, value=item.get("order_recipes__recipe__name") or "Unknown")
+        for item in top_products:
+            ws.cell(row=row, column=1, value=item.get("order_products__product__name") or "Unknown")
             qty = item.get("total_quantity_sold") or 0
             revenue = item.get("total_revenue") or 0
             margin = item.get("profit_margin") or 0

@@ -127,13 +127,29 @@ class SupplierSerializer(serializers.ModelSerializer):
         return representation
 
 
+class InventoryItemLiteSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested use - avoids N+1 queries."""
+
+    class Meta:
+        model = InventoryItem
+        fields = ["id", "name", "unit", "is_default"]
+
+
+class SupplierLiteSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested use - avoids N+1 queries."""
+
+    class Meta:
+        model = Supplier
+        fields = ["id", "name", "contact"]
+
+
 class InventoryHistorySerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    inventory_item = InventoryItemSerializer(read_only=True)
+    inventory_item = InventoryItemLiteSerializer(read_only=True)
     inventory_item_id = serializers.PrimaryKeyRelatedField(
         queryset=InventoryItem.objects.all(), source="inventory_item", write_only=True
     )
-    supplier = SupplierSerializer(read_only=True)
+    supplier = SupplierLiteSerializer(read_only=True)
     supplier_id = serializers.PrimaryKeyRelatedField(
         queryset=Supplier.objects.all(),
         source="supplier",
@@ -242,6 +258,10 @@ class InventorySerializer(serializers.ModelSerializer):
         validated_data = super().validate(attrs)
 
         entries = validated_data.get("entries")
+        user = self.context["request"].user
+
+        # Collect all inventory item IDs for bulk validation
+        inventory_item_ids = []
         for entry in entries:
             inventory_item_id = entry.get("inventory_item_id")
             quantity = entry.get("quantity")
@@ -273,7 +293,7 @@ class InventorySerializer(serializers.ModelSerializer):
         for item_id in inventory_item_ids:
             if item_id not in valid_items:
                 raise serializers.ValidationError(
-                    f"Inventory item with id {inventory_item_id} does not exist."
+                    f"Inventory item with id {item_id} does not exist."
                 )
 
         return validated_data

@@ -7,6 +7,7 @@ from apps.inventory.models import Supplier, Inventory
 from apps.recipes.models import Recipe
 from apps.customers.models import Customer
 from apps.orders.models import Order, Overhead
+from apps.products.models import Product
 
 User = get_user_model()
 
@@ -70,9 +71,14 @@ class Command(BaseCommand):
                     updates["has_added_customer"] = True
 
                 # Check has_created_order
-                has_order = Order.objects.filter(customer__created_by=user).exists()
+                has_order = Order.objects.filter(created_by=user).exists()
                 if has_order and not metrics.has_created_order:
                     updates["has_created_order"] = True
+                
+                # Chech has_created_product
+                has_product = Product.objects.filter(created_by=user).exists()
+                if has_product and not metrics.has_created_product:
+                    updates["has_created_product"] = True
 
                 # Apply updates
                 if updates:

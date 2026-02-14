@@ -2,7 +2,8 @@ from django.db.models import Sum, F, Q, DecimalField
 from django.db.models.functions import Coalesce
 from djmoney.money import Money
 from ..inventory.models import InventoryItem, Inventory, InventoryHistory
-from ..orders.models import OrderRecipe
+from ..recipes.models import RecipeInventory
+from ..orders.models import OrderProduct
 
 
 def calculate_inventory_turnover(user, start_date=None, end_date=None, currency="USD"):
@@ -27,19 +28,24 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
     )
 
     # Calculate consumption from orders in bulk
+    # Path: OrderProduct -> Product -> ProductRecipes -> Recipe -> RecipeInventory
     # Consumption after start_date
     start_consumption = {}
     if start_date:
         consumption_data = (
-            OrderRecipe.objects.filter(
-                order__created_by=user,
-                order__status="completed",
-                order__created_at__gte=start_date,
+            RecipeInventory.objects.filter(
+                recipe__recipe_products__product__order_products__order__created_by=user,
+                recipe__recipe_products__product__order_products__order__status="completed",
+                recipe__recipe_products__product__order_products__order__created_at__gte=start_date,
             )
-            .values("recipe__ingredients__inventory_item_id")
+            .values("inventory_item_id")
             .annotate(
                 total_consumed=Coalesce(
-                    Sum(F("recipe__ingredients__quantity") * F("quantity")),
+                    Sum(
+                        F("quantity")
+                        * F("recipe__recipe_products__quantity")
+                        * F("recipe__recipe_products__product__order_products__quantity")
+                    ),
                     0,
                     output_field=DecimalField(),
                 )
@@ -47,7 +53,7 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
         )
 
         start_consumption = {
-            item["recipe__ingredients__inventory_item_id"]: item["total_consumed"]
+            item["inventory_item_id"]: item["total_consumed"]
             for item in consumption_data
         }
 
@@ -55,15 +61,19 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
     end_consumption = {}
     if end_date:
         consumption_data = (
-            OrderRecipe.objects.filter(
-                order__created_by=user,
-                order__status="completed",
-                order__created_at__gte=end_date,
+            RecipeInventory.objects.filter(
+                recipe__recipe_products__product__order_products__order__created_by=user,
+                recipe__recipe_products__product__order_products__order__status="completed",
+                recipe__recipe_products__product__order_products__order__created_at__gte=end_date,
             )
-            .values("recipe__ingredients__inventory_item_id")
+            .values("inventory_item_id")
             .annotate(
                 total_consumed=Coalesce(
-                    Sum(F("recipe__ingredients__quantity") * F("quantity")),
+                    Sum(
+                        F("quantity")
+                        * F("recipe__recipe_products__quantity")
+                        * F("recipe__recipe_products__product__order_products__quantity")
+                    ),
                     0,
                     output_field=DecimalField(),
                 )
@@ -71,7 +81,7 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
         )
 
         end_consumption = {
-            item["recipe__ingredients__inventory_item_id"]: item["total_consumed"]
+            item["inventory_item_id"]: item["total_consumed"]
             for item in consumption_data
         }
 
@@ -112,16 +122,20 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
     cogs_data = {}
     if start_date and end_date:
         cogs_calculations = (
-            OrderRecipe.objects.filter(
-                order__created_by=user,
-                order__status="completed",
-                order__created_at__gte=start_date,
-                order__created_at__lte=end_date,
+            RecipeInventory.objects.filter(
+                recipe__recipe_products__product__order_products__order__created_by=user,
+                recipe__recipe_products__product__order_products__order__status="completed",
+                recipe__recipe_products__product__order_products__order__created_at__gte=start_date,
+                recipe__recipe_products__product__order_products__order__created_at__lte=end_date,
             )
-            .values("recipe__ingredients__inventory_item_id")
+            .values("inventory_item_id")
             .annotate(
                 total_cogs=Coalesce(
-                    Sum(F("recipe__ingredients__cost") * F("quantity")),
+                    Sum(
+                        F("cost")
+                        * F("recipe__recipe_products__quantity")
+                        * F("recipe__recipe_products__product__order_products__quantity")
+                    ),
                     0,
                     output_field=DecimalField(),
                 )
@@ -129,7 +143,7 @@ def calculate_inventory_turnover(user, start_date=None, end_date=None, currency=
         )
 
         cogs_data = {
-            item["recipe__ingredients__inventory_item_id"]: item["total_cogs"]
+            item["inventory_item_id"]: item["total_cogs"]
             for item in cogs_calculations
         }
 
