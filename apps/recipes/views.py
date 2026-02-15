@@ -168,7 +168,7 @@ class RecipeCategoryViewset(ModelViewSet):
         base_queryset = (
             RecipeCategory.objects.all()
             if user.is_superuser
-            else RecipeCategory.objects.filter(created_by=user, is_active=True)
+            else RecipeCategory.objects.filter(Q(created_by=user)|Q(is_default=True), is_active=True)
         )
         return base_queryset.select_related("created_by").order_by("name")
 

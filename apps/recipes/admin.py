@@ -50,7 +50,7 @@ class RecipeInventoryAdmin(admin.ModelAdmin):
 
 @admin.register(RecipeCategory)
 class RecipeCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description', 'created_by', 'created_at')
+    list_display = ('name', 'description', 'created_by', 'created_at', 'is_default')
     search_fields = ('name',)
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
@@ -58,6 +58,6 @@ class RecipeCategoryAdmin(admin.ModelAdmin):
             'fields': ('name', 'description')
         }),
         ('System Information', {
-            'fields': ('created_by', 'created_at', 'updated_at'),
+            'fields': ('is_default', 'created_by', 'created_at', 'updated_at'),
         }),
     )
