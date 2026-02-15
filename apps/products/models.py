@@ -67,7 +67,9 @@ class Product(BaseModel):
     def save(self, *args, **kwargs):
         self.calculate_costs()
         super().save(*args, **kwargs)
-
+    
+    def __str__(self):
+        return self.name
 
 class ProductRecipes(BaseModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_recipes")

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderProduct
+from .models import Order, OrderProduct, Overhead
 
 
 class ProductInline(admin.TabularInline):
@@ -82,5 +82,25 @@ class OrderProductAdmin(admin.ModelAdmin):
             {
                 "fields": ("order", "product", "quantity", "line_cost"),
             },
+        ),
+    )
+
+
+@admin.register(Overhead)
+class OverheadAdmin(admin.ModelAdmin):
+    list_display = ("name", "monthly_cost", "yearly_cost", "created_by")
+    search_fields = ("name", "created_by__email")
+    list_filter = ("created_by",)
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        (None, {"fields": ("name", "created_by")}),
+        (
+            "Costs",
+            {"fields": ("monthly_cost", "yearly_cost")},
+        ),
+        (
+            "Timestamps",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
