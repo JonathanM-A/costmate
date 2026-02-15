@@ -51,7 +51,7 @@ class RecipeViewset(ModelViewSet):
             .order_by("name")
         )
     
-    def get_serializer_class(self):
+    def get_serializer_class(self): # type: ignore
         if self.action == "retrieve":
             return RecipeDetailSerializer
         return super().get_serializer_class()

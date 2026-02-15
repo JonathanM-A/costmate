@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from .models import UserPreferences, OnboardingMetrics
+from .models import Business, UserPreferences, OnboardingMetrics
 from logging import getLogger
 
 User = get_user_model()
@@ -33,8 +33,7 @@ def create_default_overheads(self, user_id):
     try:
         user = User.objects.get(id=user_id)
         overheads_to_create = [
-            Overhead(name=name, created_by=user)
-            for name in DEFAULT_OVERHEAD_NAMES
+            Overhead(name=name, created_by=user) for name in DEFAULT_OVERHEAD_NAMES
         ]
         Overhead.objects.bulk_create(overheads_to_create, ignore_conflicts=True)
         logger.info(f"Created default overheads for user {user_id}")
@@ -44,6 +43,27 @@ def create_default_overheads(self, user_id):
     except Exception as e:
         logger.error(
             f"Error creating default overheads for user {user_id}: {e}{retry_info}"
+        )
+        self.retry(exc=e)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def create_business(self, user_id):
+    retry_info = f" (Attempt {self.request.retries + 1} of {self.max_retries})"
+    try:
+        user = User.objects.get(id=user_id)
+        Business.objects.create(user=user)
+    except IntegrityError as e:
+        logger.error(
+            f"IntegrityError while creating business for user {user_id}: {e}{retry_info}"
+        )
+        self.retry(exc=e)
+    except User.DoesNotExist:
+        logger.error(f"User with id {user_id} does not exist.")
+        self.retry(exc=Exception("User does not exist"))
+    except Exception as e:
+        logger.error(
+            f"Unexpected error while creating business for user {user_id}: {e}{retry_info}"
         )
         self.retry(exc=e)
 

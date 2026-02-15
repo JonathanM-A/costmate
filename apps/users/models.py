@@ -94,6 +94,33 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         return f"{self.first_name} {self.last_name}"
 
 
+class Business(BaseModel):
+    id = None
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="business",
+        primary_key=True,
+    )
+    name = models.CharField(max_length=100, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    facebook = models.URLField(blank=True, null=True)
+    instagram = models.URLField(blank=True, null=True)
+    x_twitter = models.URLField(blank=True, null=True)
+    tiktok = models.URLField(blank=True, null=True)
+
+    class Meta: # type: ignore
+        verbose_name = "Business"
+        verbose_name_plural = "Businesses"
+
+    def __str__(self):
+        return self.name or f"Business for {self.user.email}"
+
+
 ALLOWED_NOTIFICATION_KEYS = {"stock_alerts", "order_reminder", "system_updates", "weekly_reports"}
 
 class UserPreferences(BaseModel):
@@ -222,3 +249,6 @@ class OnboardingMetrics(BaseModel):
             self.has_created_order,
         ]
         return str(int((sum(steps) / len(steps)) * 100)) + "%"
+
+
+

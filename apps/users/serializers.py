@@ -4,7 +4,7 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from allauth.account.adapter import get_adapter
 from allauth.account.utils import setup_user_email
 from allauth.account.models import EmailAddress
-from .models import User, UserPreferences, OnboardingMetrics
+from .models import User, Business, UserPreferences, OnboardingMetrics
 import logging
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,14 @@ class CustomRegisterSerializer(RegisterSerializer):
         self.custom_signup(request, user)
         setup_user_email(request, user, [])
         return user
+
+
+class BusinessSerializer(serializers.ModelSerializer):
+    """Serializer for Business model"""
+
+    class Meta:
+        model = Business
+        exclude = ("user", "created_at", "updated_at", "is_active")
 
 
 class UserPreferencesSerializer(serializers.ModelSerializer):

@@ -113,7 +113,7 @@ class Recipe(BaseModel):
             self.labour_cost = Decimal(0.00)
 
         # Calculate inventory items cost
-        inventory_cost = self.ingredients.aggregate(
+        inventory_cost = self.ingredients.aggregate( # type: ignore
             total=Sum('cost')
         )['total'] or Decimal(0.00)
         self.inventory_items_cost = inventory_cost

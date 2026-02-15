@@ -18,11 +18,12 @@ from .serializers import (
     CustomRegisterSerializer,
     UserSerializer,
     User,
+    BusinessSerializer,
     UserPreferencesSerializer,
     UserPreferences,
     OnboardingMetricsSerializer,
 )
-from .models import OnboardingMetrics
+from .models import Business, OnboardingMetrics
 from .utils import get_preferences_cache_key
 import requests
 import environ
@@ -119,7 +120,9 @@ class GoogleCallbackView(APIView):
 
             if token_response.status_code != 200:
                 logger.error(f"Google token error: {token_response.text}")
-                return redirect(f"{settings.DOMAIN_NAME}/login?error=token_exchange_failed")
+                return redirect(
+                    f"{settings.DOMAIN_NAME}/login?error=token_exchange_failed"
+                )
 
             # Verify ID token with Google's public keys
             request_session = google.auth.transport.requests.Request()
@@ -143,10 +146,12 @@ class GoogleCallbackView(APIView):
 
             # Generate JWT tokens and redirect to frontend
             refresh = RefreshToken.for_user(user)
-            params = urlencode({
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-            })
+            params = urlencode(
+                {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                }
+            )
             return redirect(f"{settings.DOMAIN_NAME}/auth/callback?{params}")
 
         except Exception as e:
@@ -156,16 +161,14 @@ class GoogleCallbackView(APIView):
 
 class SessionView(APIView):
     """View to check authentication status and return user data"""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         serializer = UserSerializer(request.user)
         return Response(
-            {
-                "status": "authenticated",
-                "user": serializer.data
-            },
-            status=status.HTTP_200_OK
+            {"status": "authenticated", "user": serializer.data},
+            status=status.HTTP_200_OK,
         )
 
 
@@ -178,14 +181,14 @@ class UserPreferencesView(RetrieveUpdateAPIView):
             self.request.user.preferences  # type:  ignore
             if hasattr(self.request.user, "preferences")
             else None
-        )  
+        )
 
-    def get_queryset(self): # type:  ignore
+    def get_queryset(self):  # type:  ignore
         user = self.request.user
         if not user.is_authenticated:
             return UserPreferences.objects.none()
 
-        if hasattr(user, 'preferences'):
+        if hasattr(user, "preferences"):
             return UserPreferences.objects.filter(user=user)
 
     def retrieve(self, request, *args, **kwargs):
@@ -203,7 +206,9 @@ class UserPreferencesView(RetrieveUpdateAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
-        cache_key = get_preferences_cache_key(request.user.id, settings.REST_FRAMEWORK["DEFAULT_VERSION"])
+        cache_key = get_preferences_cache_key(
+            request.user.id, settings.REST_FRAMEWORK["DEFAULT_VERSION"]
+        )
         cache.delete(cache_key)  # Invalidate cache on update
 
         response = super().update(request, *args, **kwargs)
@@ -214,23 +219,50 @@ class UserPreferencesView(RetrieveUpdateAPIView):
                 metrics = request.user.onboarding_metrics
                 if not metrics.has_entered_business_settings:
                     metrics.has_entered_business_settings = True
-                    metrics.save(update_fields=["has_entered_business_settings", "updated_at"])
+                    metrics.save(
+                        update_fields=["has_entered_business_settings", "updated_at"]
+                    )
         return response
+
+
+class BusinessView(RetrieveUpdateAPIView):
+    """View for retrieving and updating business details"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = BusinessSerializer
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_object(self):  # type: ignore
+        return (
+            self.request.user.business  # type: ignore
+            if hasattr(self.request.user, "business")
+            else None
+        )
+
+    def get_queryset(self):  # type: ignore
+        user = self.request.user
+        if not user.is_authenticated:
+            return Business.objects.none()
+
+        if hasattr(user, "business"):
+            return Business.objects.filter(user=user)
+        return Business.objects.none()
 
 
 class OnboardingMetricsView(RetrieveUpdateAPIView):
     """View for retrieving and updating onboarding metrics"""
+
     permission_classes = [IsAuthenticated]
     serializer_class = OnboardingMetricsSerializer
 
-    def get_object(self):
+    def get_object(self):  # type: ignore
         return (
-            self.request.user.onboarding_metrics
+            self.request.user.onboarding_metrics  # type: ignore
             if hasattr(self.request.user, "onboarding_metrics")
             else None
         )
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore
         user = self.request.user
         if not user.is_authenticated:
             return OnboardingMetrics.objects.none()
