@@ -116,12 +116,15 @@ class DashboardView(APIView):
             total_completed=Count("id"),
             agg_total_cost=MoneyAggregate(effective_price, currency=currency),
             total_profit=MoneyAggregate(profit_expr, currency=currency),
-            total_profit_percent=Sum(profit_expr) / Sum(effective_price) * 100,
+            total_profit_sum=Sum(profit_expr),
+            total_revenue_sum=Sum(effective_price),
         )
         # Rename to preserve API response field name
         order_stats["total_cost"] = order_stats.pop("agg_total_cost")
 
-        order_stats["total_profit_percent"] = round(order_stats["total_profit_percent"] or 0, 2)
+        total_revenue = order_stats.pop("total_revenue_sum") or 0
+        total_profit_raw = order_stats.pop("total_profit_sum") or 0
+        order_stats["total_profit_percent"] = round((total_profit_raw / total_revenue * 100) if total_revenue else 0, 2)
 
         if start_date:
             completed_orders = completed_orders.filter(
