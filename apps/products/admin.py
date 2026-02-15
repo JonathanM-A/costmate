@@ -17,12 +17,12 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category__name", "created_by", "total_cost", "recipes_count", "created_at")
-    list_filter = ("created_by", "category__name")
+    list_display = ("name", "category", "created_by", "total_cost", "recipes_count", "created_at")
+    list_filter = ("created_by", "category")
     search_fields = ("name",)
     readonly_fields = ("recipes_cost", "labour_cost", "total_cost", "recipes_count", "created_at", "updated_at")
     fieldsets = (
-        (None, {"fields": ("name", "category__name")}),
+        (None, {"fields": ("name", "category")}),
         ("Labour", {"fields": ("labour_time", "labour_rate", "labour_cost")}),
         ("Costs", {"fields": ("recipes_count", "recipes_cost", "total_cost")}),
         ("Ownership", {"fields": ("created_by",)}),

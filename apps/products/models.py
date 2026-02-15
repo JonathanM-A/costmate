@@ -16,6 +16,9 @@ class ProductCategory(BaseModel):
         verbose_name_plural = "Product Categories"
         ordering = ["name"]
         unique_together = ("name", "created_by")
+    
+    def __str__(self):
+        return self.name
 
 class Product(BaseModel):
     name = models.CharField(max_length=255, blank=False)
