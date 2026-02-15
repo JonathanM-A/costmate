@@ -12,6 +12,7 @@ User = get_user_model()
 class RecipeCategory(BaseModel):
     name = models.CharField(max_length=100, blank=False)
     description = models.TextField(blank=True, null=True)
+    is_default = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, blank=False, related_name="recipe_categories"
     )
