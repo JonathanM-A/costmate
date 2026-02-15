@@ -6,7 +6,13 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from apps.subscriptions.models import Subscription
-from .tasks import create_user_preferences, create_onboarding_metrics, send_welcome_email, create_default_overheads
+from .tasks import (
+    create_business,
+    create_user_preferences,
+    create_onboarding_metrics,
+    send_welcome_email,
+    create_default_overheads,
+)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -16,6 +22,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 @receiver(post_save, sender=User)
 def create_related_models(sender, instance, created, **kwargs):
     if created and not instance.is_superuser:
+        create_business(instance.id)  # type: ignore
         create_user_preferences(instance.id)  # type: ignore
         create_onboarding_metrics(instance.id)  # type: ignore
         create_default_overheads(instance.id)  # type: ignore
@@ -85,7 +92,8 @@ def create_trial_subscription(user):
         logger.info(f"Trial subscription created for user {user.id}")
 
     except stripe.StripeError as e:
-        logger.error(f"Stripe error creating trial subscription for user {user.id}: {e}")
+        logger.error(
+            f"Stripe error creating trial subscription for user {user.id}: {e}"
+        )
     except Exception as e:
         logger.error(f"Error creating trial subscription for user {user.id}: {e}")
-

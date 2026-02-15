@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, UserPreferences, OnboardingMetrics
+from .models import User, Business, UserPreferences, OnboardingMetrics
 
 
 @admin.register(User)
@@ -46,6 +46,33 @@ class UserAdmin(BaseUserAdmin):
                     "last_name",
                 ),
             },
+        ),
+    )
+
+
+@admin.register(Business)
+class BusinessAdmin(admin.ModelAdmin):
+    list_display = ("user", "name", "country", "state", "email", "phone")
+    search_fields = ("name", "user__email", "user__first_name", "user__last_name")
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        (None, {"fields": ("user", "name")}),
+        (
+            "Location",
+            {"fields": ("address", "country", "state")},
+        ),
+        (
+            "Contact",
+            {"fields": ("email", "phone")},
+        ),
+        (
+            "Social Media",
+            {"fields": ("facebook", "instagram", "x_twitter", "tiktok")},
+        ),
+        (
+            "Timestamps",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
 
