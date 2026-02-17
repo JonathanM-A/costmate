@@ -40,6 +40,7 @@ kombu==5.5.4
 oauthlib==3.2.2
 openpyxl==3.1.5
 packaging==25.0
+pillow==12.1.1
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.10
 py-moneyed==3.0
