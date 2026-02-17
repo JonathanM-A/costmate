@@ -12,6 +12,7 @@ services:
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
+      - media_volume:/app/media
     env_file:
       - .env
     environment:
@@ -45,6 +46,7 @@ services:
     command: celery -A config worker -l info
     volumes:
       - .:/app
+      - media_volume:/app/media
     env_file:
       - .env
     restart: unless-stopped

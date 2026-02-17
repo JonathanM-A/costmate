@@ -59,6 +59,10 @@ class BusinessAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("user", "name")}),
         (
+            "Branding",
+            {"fields": ("logo",)},
+        ),
+        (
             "Location",
             {"fields": ("address", "country", "state")},
         ),

@@ -1,3 +1,5 @@
+import os
+import uuid
 from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -8,6 +10,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 from ..common.models import BaseModel
+from .validators import (
+    validate_logo_file_size,
+    validate_logo_file_extension,
+    validate_logo_dimensions,
+)
 
 
 class UserManager(BaseUserManager):
@@ -94,6 +101,13 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         return f"{self.first_name} {self.last_name}"
 
 
+def logo_upload_path(instance, filename):
+    """Generate upload path for logo files: logos/{user_pk}_{uuid}.{ext}"""
+    ext = os.path.splitext(filename)[1]
+    unique_filename = f"{instance.user.pk}_{uuid.uuid4()}{ext}"
+    return os.path.join("logos", unique_filename)
+
+
 class Business(BaseModel):
     id = None
     user = models.OneToOneField(
@@ -112,6 +126,16 @@ class Business(BaseModel):
     instagram = models.URLField(blank=True, null=True)
     x_twitter = models.URLField(blank=True, null=True)
     tiktok = models.URLField(blank=True, null=True)
+    logo = models.ImageField(
+        upload_to=logo_upload_path,
+        blank=True,
+        null=True,
+        validators=[
+            validate_logo_file_size,
+            validate_logo_file_extension,
+            validate_logo_dimensions,
+        ],
+    )
 
     class Meta: # type: ignore
         verbose_name = "Business"
@@ -119,6 +143,19 @@ class Business(BaseModel):
 
     def __str__(self):
         return self.name or f"Business for {self.user.email}"
+
+    def save(self, *args, **kwargs):
+        """Override save to delete old logo file when a new one is uploaded."""
+        if self.pk:
+            try:
+                old_instance = Business.objects.get(pk=self.pk)
+                if old_instance.logo and old_instance.logo != self.logo:
+                    # Delete the old logo file from storage
+                    if old_instance.logo.storage.exists(old_instance.logo.name):
+                        old_instance.logo.delete(save=False)
+            except Business.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
 
 
 ALLOWED_NOTIFICATION_KEYS = {"stock_alerts", "order_reminder", "system_updates", "weekly_reports"}

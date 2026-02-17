@@ -96,6 +96,16 @@ class BusinessSerializer(serializers.ModelSerializer):
         model = Business
         exclude = ("user", "created_at", "updated_at", "is_active")
 
+    def validate_logo(self, value):
+        """Validate that the uploaded logo has a valid content type."""
+        if value:
+            valid_content_types = ['image/jpeg', 'image/png']
+            if value.content_type not in valid_content_types:
+                raise ValidationError(
+                    f"Unsupported file type. Allowed types: {', '.join(valid_content_types)}."
+                )
+        return value
+
 
 class UserPreferencesSerializer(serializers.ModelSerializer):
     """Serializer for UserPreferences model"""

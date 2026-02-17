@@ -1,6 +1,8 @@
 import re
+import os
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from PIL import Image
 
 
 class ComplexityValidator:
@@ -33,4 +35,64 @@ class ComplexityValidator:
         return _(
             "Your password must contain at least one uppercase letter, "
             "one digit, and one special character."
+        )
+
+
+def validate_logo_file_size(value):
+    """Validate that the uploaded logo file is not larger than 5MB."""
+    max_size = 5 * 1024 * 1024  # 5MB in bytes
+    if value.size > max_size:
+        raise ValidationError(
+            _("Logo file size must not exceed 5MB. Current size: {size}MB.").format(
+                size=round(value.size / (1024 * 1024), 2)
+            ),
+            code="file_size_exceeded"
+        )
+
+
+def validate_logo_file_extension(value):
+    """Validate that the uploaded logo has a valid file extension (.jpg, .jpeg, .png)."""
+    valid_extensions = ['.jpg', '.jpeg', '.png']
+    ext = os.path.splitext(value.name)[1].lower()
+    if ext not in valid_extensions:
+        raise ValidationError(
+            _("Unsupported file extension. Allowed extensions: {extensions}.").format(
+                extensions=", ".join(valid_extensions)
+            ),
+            code="invalid_file_extension"
+        )
+
+
+def validate_logo_dimensions(value):
+    """Validate that the uploaded logo dimensions are between 100x100 and 2000x2000 pixels."""
+    try:
+        img = Image.open(value)
+        width, height = img.size
+        min_dimension = 100
+        max_dimension = 2000
+
+        if width < min_dimension or height < min_dimension:
+            raise ValidationError(
+                _("Logo dimensions must be at least {min}x{min} pixels. Current size: {width}x{height}.").format(
+                    min=min_dimension, width=width, height=height
+                ),
+                code="dimensions_too_small"
+            )
+
+        if width > max_dimension or height > max_dimension:
+            raise ValidationError(
+                _("Logo dimensions must not exceed {max}x{max} pixels. Current size: {width}x{height}.").format(
+                    max=max_dimension, width=width, height=height
+                ),
+                code="dimensions_too_large"
+            )
+
+        # Reset file pointer after reading
+        value.seek(0)
+    except Exception as e:
+        if isinstance(e, ValidationError):
+            raise
+        raise ValidationError(
+            _("Invalid image file. Could not read image dimensions."),
+            code="invalid_image"
         )
