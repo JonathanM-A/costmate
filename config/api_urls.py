@@ -14,4 +14,5 @@ urlpatterns = [
     path("subscription/", include("apps.subscriptions.urls")),
     path("", include("apps.health.urls")),
     path("", include("apps.feedback.urls")),
+    path("", include("apps.common.urls")),
 ]
