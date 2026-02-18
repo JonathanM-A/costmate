@@ -64,12 +64,12 @@ def validate_logo_file_extension(value):
 
 
 def validate_logo_dimensions(value):
-    """Validate that the uploaded logo dimensions are between 100x100 and 2000x2000 pixels."""
+    """Validate that the uploaded logo dimensions are between 100x100 and 5000x5000 pixels."""
     try:
         img = Image.open(value)
         width, height = img.size
         min_dimension = 100
-        max_dimension = 2000
+        max_dimension = 5000
 
         if width < min_dimension or height < min_dimension:
             raise ValidationError(
