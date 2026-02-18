@@ -1,5 +1,5 @@
 services:
-  costnav: 
+  costnav:
     command: >
       sh -c "python manage.py initialize_system &&
             python manage.py collectstatic --noinput &&
@@ -8,6 +8,7 @@ services:
       - 8000:8000
     volumes:
       - ./staticfiles:/app/staticfiles
+      - media_volume:/app/media
   
   db:
     ports: []
@@ -23,7 +24,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./staticfiles:/app/staticfiles:ro
-      - ./media_volume:/app/media_volume
+      - media_volume:/app/media:ro
       - /var/www/certbot:/var/lib/letsencrypt:ro
       - ./certbot-etc:/etc/letsencrypt:ro
     depends_on:
