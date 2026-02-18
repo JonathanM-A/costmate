@@ -10,7 +10,7 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from dj_rest_auth.registration.views import RegisterView
 import google.oauth2.id_token
@@ -231,7 +231,7 @@ class BusinessView(RetrieveUpdateAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = BusinessSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_object(self):  # type: ignore
