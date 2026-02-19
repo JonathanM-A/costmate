@@ -1,3 +1,5 @@
+from datetime import datetime
+from decimal import Decimal
 from djmoney.money import Money
 from django.db import transaction
 from django.db.models import Q
@@ -249,6 +251,160 @@ class OrderSerializer(serializers.ModelSerializer):
         representation["vat_rate"] = str(instance.vat_rate) + "%"
         representation["customer"] = instance.customer.name
         return representation
+
+class InvoiceOrderProductSerializer(serializers.ModelSerializer):
+    """Serializer for line items in an invoice."""
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    category = serializers.CharField(source="product.category.name", default=None, read_only=True)
+    unit_price = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderProduct
+        fields = ["product_name", "category", "unit_price", "quantity", "amount"]
+
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+
+    def get_unit_price(self, obj):
+        unit_price = obj.line_cost / obj.quantity if obj.quantity else obj.line_cost
+        return str(Money(unit_price, self.currency))
+
+    def get_amount(self, obj):
+        return str(Money(obj.line_cost, self.currency))
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    """Serializer for the invoice view, matching the invoice design."""
+    # Business info
+    business = serializers.SerializerMethodField()
+    # Customer info
+    customer = serializers.SerializerMethodField()
+    # Invoice metadata
+    invoice_no = serializers.CharField(source="order_no", read_only=True)
+    date = serializers.SerializerMethodField()
+    delivery_date = UserFormattedDate(read_only=True)
+    # Line items
+    items = serializers.SerializerMethodField()
+    # Financial summary
+    subtotal = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    deposit_percentage = serializers.SerializerMethodField()
+    deposit_due = serializers.SerializerMethodField()
+    balance_due = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "business",
+            "customer",
+            "invoice_no",
+            "date",
+            "delivery_date",
+            "items",
+            "subtotal",
+            "discount",
+            "tax",
+            "total",
+            "deposit_percentage",
+            "deposit_due",
+            "balance_due"
+        ]
+
+    @property
+    def currency(self):
+        return get_user_preferrence_from_cache(
+            self.context["request"].user.id, "currency", "USD"
+        )
+
+    def get_date(self, obj):
+        today = datetime.now().date()
+        date_field = UserFormattedDate(read_only=True)
+        date_field.bind("date", self)
+        return date_field.to_representation(today)
+
+    def get_business(self, obj):
+        business = getattr(obj.created_by, "business", None)
+        if not business:
+            return None
+        request = self.context.get("request")
+        logo_url = None
+        if business.logo and request:
+            logo_url = request.build_absolute_uri(business.logo.url)
+        return {
+            "name": business.name,
+            "address": business.address,
+            "logo": logo_url,
+        }
+
+    def get_customer(self, obj):
+        customer = obj.customer
+        return {
+            "name": customer.name,
+            "phone": customer.contact,
+            "address": customer.address,
+            "email": customer.email,
+        }
+
+    def get_items(self, obj):
+        order_products = (
+            getattr(obj, "prefetched_order_products", None)
+            or obj.order_products.select_related("product__category").all()
+        )
+        return InvoiceOrderProductSerializer(
+            order_products, many=True, context=self.context
+        ).data
+
+    def get_subtotal(self, obj):
+        return str(Money(obj.final_price, self.currency))
+
+    def get_discount(self, obj):
+        if obj.discount_is_percentage:
+            discount_amount = obj.order_price * (obj.discount / Decimal("100"))
+        else:
+            discount_amount = obj.discount
+        return str(Money(discount_amount, self.currency))
+
+    def get_tax(self, obj):
+        tax_enabled = get_user_preferrence_from_cache(
+            self.context["request"].user.id, "tax_enabled", False
+        )
+        if not tax_enabled:
+            return None
+        return str(Money(obj.vat_amount, self.currency))
+
+    def get_total(self, obj):
+        return str(Money(self._get_total(obj), self.currency))
+
+    def _get_deposit_percentage(self, obj):
+        business = getattr(obj.created_by, "business", None)
+        if business:
+            return business.deposit_percentage
+        return Decimal("0.00")
+
+    def get_deposit_percentage(self, obj):
+        return str(self._get_deposit_percentage(obj)) + "%"
+
+    def _get_total(self, obj):
+        return obj.preferred_final_price if obj.preferred_final_price is not None else obj.suggested_price
+
+    def _get_deposit_amount(self, obj):
+        deposit_pct = self._get_deposit_percentage(obj)
+        return self._get_total(obj) * (deposit_pct / Decimal("100"))
+
+    def get_deposit_due(self, obj):
+        return str(Money(self._get_deposit_amount(obj), self.currency))
+
+    def get_balance_due(self, obj):
+        balance = self._get_total(obj) - self._get_deposit_amount(obj)
+        return str(Money(balance, self.currency))
+
 
 class OverheadSerializer(serializers.ModelSerializer):
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())

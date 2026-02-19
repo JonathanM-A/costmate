@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework import status
 from .serializers import (
     OrderSerializer,
+    InvoiceSerializer,
     Order,
     OrderProduct,
     Overhead,
@@ -178,6 +179,12 @@ class OrderViewSet(ModelViewSet):
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=200)
+
+    @action(methods=["get"], detail=True, url_path="invoice")
+    def invoice(self, request, pk=None, **kwargs):
+        order = self.get_object()
+        serializer = InvoiceSerializer(order, context=self.get_serializer_context())
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class OverheadViewSet(ModelViewSet):
