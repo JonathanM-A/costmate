@@ -126,6 +126,12 @@ class Business(BaseModel):
     instagram = models.URLField(blank=True, null=True)
     x_twitter = models.URLField(blank=True, null=True)
     tiktok = models.URLField(blank=True, null=True)
+    deposit_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Deposit percentage required to confirm an order (e.g., 70.00 for 70%)",
+    )
     logo = models.ImageField(
         upload_to=logo_upload_path,
         blank=True,
