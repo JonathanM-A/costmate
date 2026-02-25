@@ -297,6 +297,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     deposit_percentage = serializers.SerializerMethodField()
     deposit_due = serializers.SerializerMethodField()
     balance_due = serializers.SerializerMethodField()
+    invoice_footer = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -314,7 +315,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "total",
             "deposit_percentage",
             "deposit_due",
-            "balance_due"
+            "balance_due",
+            "invoice_footer",
         ]
 
     @property
@@ -404,6 +406,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_balance_due(self, obj):
         balance = self._get_total(obj) - self._get_deposit_amount(obj)
         return str(Money(balance, self.currency))
+    
+    def get_invoice_footer(self, obj):
+        business = getattr(obj.created_by, "business", None)
+        if business and business.invoice_footer:
+            return business.invoice_footer
+        return None
 
 
 class OverheadSerializer(serializers.ModelSerializer):
