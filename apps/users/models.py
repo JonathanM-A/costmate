@@ -142,6 +142,7 @@ class Business(BaseModel):
             validate_logo_dimensions,
         ],
     )
+    invoice_footer= models.TextField(blank=True, null=True, max_length=100)
 
     class Meta: # type: ignore
         verbose_name = "Business"
