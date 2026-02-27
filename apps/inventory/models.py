@@ -178,6 +178,10 @@ class InventoryHistory(BaseModel):
 
     class Meta:  # type: ignore
         verbose_name_plural = "Inventory History"
+        indexes = [
+            models.Index(fields=["inventory_item", "-incident_date"], name="invhistory_item_date_idx"),
+            models.Index(fields=["created_by", "-incident_date"], name="invhistory_user_date_idx"),
+        ]
 
     def __str__(self):
         return str(self.pk)

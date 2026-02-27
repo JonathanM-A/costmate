@@ -126,6 +126,11 @@ class Order(BaseModel):
     class Meta:
         ordering = ["-created_at"]
         unique_together = ("order_no", "created_by")
+        indexes = [
+            models.Index(fields=["created_by", "status"], name="order_user_status_idx"),
+            models.Index(fields=["created_by", "delivery_date"], name="order_user_delivery_idx"),
+            models.Index(fields=["created_by", "-created_at"], name="order_user_created_idx"),
+        ]
 
     def calculate_costs(self):
         """
