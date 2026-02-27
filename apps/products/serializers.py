@@ -1,4 +1,5 @@
 from functools import cached_property
+from django.db.models import Q
 from rest_framework import serializers
 from djmoney.money import Money
 from .models import Product, ProductRecipes, ProductCategory
@@ -81,7 +82,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         if user and "category_id" in fields:
             fields["category_id"].queryset = fields["category_id"].queryset.filter(
-                created_by=user.id
+                Q(created_by=user.id) | Q(is_default=True)
             )
         return fields
 
@@ -155,7 +156,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
         if user and "category_id" in fields:
             fields["category_id"].queryset = fields["category_id"].queryset.filter(
-                created_by=user.id
+                Q(created_by=user.id) | Q(is_default=True)
             )
         return fields
 
