@@ -23,17 +23,14 @@ def update_user_subscription(stripe_customer_id, mark_trial_used=False, **kwargs
     try:
         user = User.objects.get(stripe_customer_id=stripe_customer_id)
     except User.DoesNotExist:
-        logger.info(f"User with Stripe Customer ID {stripe_customer_id} does not exist.")
+        logger.error(f"User with Stripe Customer ID {stripe_customer_id} does not exist.")
         return
 
     if mark_trial_used and not user.has_used_free_trial: # type: ignore
         user.has_used_free_trial = True # type: ignore
         user.save(update_fields=['has_used_free_trial'])
 
-    subscription, created = Subscription.objects.update_or_create(user=user, defaults=kwargs)
-    logger.info(
-        f"Subscription created: {created}"
-    )
+    Subscription.objects.update_or_create(user=user, defaults=kwargs)
 
 
 @csrf_exempt
@@ -45,7 +42,6 @@ def stripe_webhook(request, version):
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
     try:
-        logger.info("Verifying Stripe webhook signature.")
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
     except ValueError as e:
         logger.error(f"Invalid payload: {e}")
@@ -96,10 +92,6 @@ def stripe_webhook(request, version):
     elif event["type"] == "invoice.payment_succeeded":
         session = event["data"]["object"]
 
-        logger.debug(
-            f"Processing invoice.payment_suceeded for session ID: {session.get('id')}"
-        )
-
         customer_id = session.get("customer")
         current_sub_start = datetime.fromtimestamp(
             session.get("period_start"), tz=timezone.utc
@@ -128,18 +120,13 @@ def stripe_webhook(request, version):
 
     elif event["type"] == "customer.subscription.updated":
         session = event["data"]["object"]
-        logger.debug(
-            f"Processing customer.subscription.updated for session ID: {session.get('id')}"
-        )
 
         customer_id = session.get("customer")
         subscription_id = session.get("id")
 
         try:
             if session.get("cancel_at_period_end"):
-                logger.info(
-                    f"Subscription {session.get('id')} is set to cancel at period end."
-                )
+
                 cancel_at_time = datetime.fromtimestamp(
                     session.get("cancel_at"), tz=timezone.utc
                 )
@@ -149,13 +136,7 @@ def stripe_webhook(request, version):
                         stripe_customer_id=customer_id,
                         is_cancelled=True
                     )
-
-                    logger.info(f"Subscription {subscription_id} marked as inactive.")
             else:
-                logger.info(
-                    f"Subscription {session.get("id")} is being upgraded"
-                )
-
                 data = session.get("items", {}).get("data", [])[0]
                 plan_id = session.get("plan").get("id")
 
@@ -202,7 +183,6 @@ def stripe_webhook(request, version):
                 message=f"Your free trial ends on {formatted_date}. Add a payment method to continue using COSTNAV.",
                 target_url=add_payment_url,
             )
-            logger.info(f"Trial ending notification created for user {user.id}") # type: ignore
 
             # Send email
             context = {
@@ -221,7 +201,6 @@ def stripe_webhook(request, version):
                 html_message=html_message,
                 fail_silently=False,
             )
-            logger.info(f"Trial ending email sent to {user.email}")
 
         except User.DoesNotExist:
             logger.error(f"User with Stripe Customer ID {customer_id} not found for trial_will_end event")

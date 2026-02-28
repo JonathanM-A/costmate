@@ -36,7 +36,6 @@ def create_default_overheads(self, user_id):
             Overhead(name=name, created_by=user) for name in DEFAULT_OVERHEAD_NAMES
         ]
         Overhead.objects.bulk_create(overheads_to_create, ignore_conflicts=True)
-        logger.info(f"Created default overheads for user {user_id}")
     except User.DoesNotExist:
         logger.error(f"User with id {user_id} does not exist.")
         self.retry(exc=Exception("User does not exist"))
@@ -131,9 +130,7 @@ def send_welcome_email(self, user_id):
         email = EmailMultiAlternatives(subject, "", from_email, [to_email])
         email.attach_alternative(html_content, "text/html")
         email.send()
-
-        logger.info(f"Welcome email sent to user {user_id}")
-
+        
     except User.DoesNotExist:
         logger.error(f"User with id {user_id} does not exist.")
         self.retry(exc=Exception("User does not exist"))
