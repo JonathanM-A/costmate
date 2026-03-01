@@ -270,11 +270,17 @@ class InvoiceOrderProductSerializer(serializers.ModelSerializer):
         )
 
     def get_unit_price(self, obj):
-        unit_price = obj.line_cost / obj.quantity if obj.quantity else obj.line_cost
+        profit_margin = self.context.get("profit_margin", Decimal(0))
+        profit_multiplier = Decimal(1) + (profit_margin / Decimal(100))
+        unit_cost = obj.line_cost / obj.quantity if obj.quantity else obj.line_cost
+        unit_price = unit_cost * profit_multiplier
         return str(Money(unit_price, self.currency))
 
     def get_amount(self, obj):
-        return str(Money(obj.line_cost, self.currency))
+        profit_margin = self.context.get("profit_margin", Decimal(0))
+        profit_multiplier = Decimal(1) + (profit_margin / Decimal(100))
+        selling_amount = obj.line_cost * profit_multiplier
+        return str(Money(selling_amount, self.currency))
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -291,6 +297,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     # Financial summary
     subtotal = serializers.SerializerMethodField()
+    service_charge = serializers.SerializerMethodField()
     discount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
@@ -298,6 +305,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     deposit_due = serializers.SerializerMethodField()
     balance_due = serializers.SerializerMethodField()
     invoice_footer = serializers.SerializerMethodField()
+    delivery_cost = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -309,6 +317,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "date",
             "delivery_date",
             "items",
+            "service_charge",
+            "delivery_cost",
             "subtotal",
             "discount",
             "tax",
@@ -359,12 +369,25 @@ class InvoiceSerializer(serializers.ModelSerializer):
             getattr(obj, "prefetched_order_products", None)
             or obj.order_products.select_related("product__category").all()
         )
+        context = {**self.context, "profit_margin": obj.profit_margin}
         return InvoiceOrderProductSerializer(
-            order_products, many=True, context=self.context
+            order_products, many=True, context=context
         ).data
 
     def get_subtotal(self, obj):
-        return str(Money(obj.final_price, self.currency))
+        profit_multiplier = Decimal(1) + (Decimal(obj.profit_margin) / Decimal(100))
+        self.subtotal = obj.total_cost * profit_multiplier
+        return str(Money(self.subtotal, self.currency))
+
+    def get_service_charge(self, obj):
+        overhead_and_packaging = obj.total_cost - obj.subtotal
+        if not overhead_and_packaging:
+            return None
+        profit_multiplier = Decimal(1) + (Decimal(obj.profit_margin) / Decimal(100))
+        return str(Money(overhead_and_packaging * profit_multiplier, self.currency))
+    
+    def get_delivery_cost(self, obj):
+        return str(Money(obj.delivery_cost, self.currency))
 
     def get_discount(self, obj):
         if obj.discount_is_percentage:

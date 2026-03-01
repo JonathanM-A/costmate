@@ -140,8 +140,8 @@ class Order(BaseModel):
         1. Subtotal = sum of (product.total_cost * quantity) for all order products
         2. Overhead Amount = Overhead value (or Subtotal * Overhead / 100 if percentage)
         3. Packaging Amount = Packaging value (or Subtotal * Packaging / 100 if percentage)
-        4. Total Cost = Subtotal + Overhead Amount + Packaging Amount + Delivery Cost
-        5. Order Price = Total Cost * (1 + Profit Margin / 100)
+        4. Total Cost = Subtotal + Overhead Amount + Packaging Amount
+        5. Order Price = Total Cost * (1 + Profit Margin / 100) + Delivery Cost
         6. Discount Amount = Discount value (or Order Price * Discount / 100 if percentage)
         7. Final Price = Order Price - Discount Amount
         8. VAT Amount = Final Price * VAT Rate / 100
@@ -164,12 +164,12 @@ class Order(BaseModel):
         else:
             packaging_amount = self.packaging
 
-        # Calculate total cost (subtotal + overhead + packaging + delivery)
-        self.total_cost = self.subtotal + overhead_amount + packaging_amount + self.delivery_cost
+        # Calculate total cost (subtotal + overhead + packaging)
+        self.total_cost = self.subtotal + overhead_amount + packaging_amount
 
         # Calculate order price with profit margin
-        profit_multiplier = Decimal(1) + (self.profit_margin / Decimal(100))
-        self.order_price = self.total_cost * profit_multiplier
+        profit_multiplier = Decimal(1) + (Decimal(self.profit_margin) / Decimal(100))
+        self.order_price = (self.total_cost * profit_multiplier) + self.delivery_cost
 
         # Calculate discount amount
         if self.discount_is_percentage:
