@@ -127,10 +127,6 @@ def stripe_webhook(request, version):
         try:
             if session.get("status") in ["paused", "canceled"]:
 
-                cancel_at_time = datetime.fromtimestamp(
-                    session.get("cancel_at"), tz=timezone.utc
-                )
-
                 if customer_id and subscription_id:
                     update_user_subscription(
                         stripe_customer_id=customer_id,
