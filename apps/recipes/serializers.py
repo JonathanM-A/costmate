@@ -1,5 +1,4 @@
 from decimal import Decimal
-from babel.numbers import get_currency_symbol
 from djmoney.money import Money
 from django.db.models import Q
 from rest_framework import serializers

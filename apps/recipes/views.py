@@ -13,8 +13,10 @@ from .serializers import (
     RecipeCategorySerializer,
     RecipeCategory,
 )
+from .services import RecipeAnalyticsService
 from ..users.permissions import IsSubscriptionActive
 from ..users.utils import get_user_preferrence_from_cache, update_onboarding_metric
+from ..users.serializers import UserFormattedDate
 import logging
 
 logger = logging.Logger(__name__)
@@ -99,6 +101,21 @@ class RecipeViewset(ModelViewSet):
             "stats": recipe_stats,
         }, status=status.HTTP_200_OK)
     
+
+    @action(detail=True, methods=["get"])
+    def analytics(self, request, pk=None, **kwargs):
+        recipe = self.get_object()
+        currency = get_user_preferrence_from_cache(request.user.id, "currency", "USD")
+
+        data = RecipeAnalyticsService.get_analytics(recipe, request.user, currency)
+
+        last_baked = data["financial_overview"]["last_baked"]
+        if last_baked["date"]:
+            date_field = UserFormattedDate(read_only=True)
+            date_field._context = {"request": request}
+            last_baked["date"] = date_field.to_representation(last_baked["date"])
+
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def enable_sharing(self, request, pk=None):
