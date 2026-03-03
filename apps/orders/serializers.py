@@ -197,9 +197,8 @@ class OrderSerializer(serializers.ModelSerializer):
             instance = super().update(instance, validated_data)
 
             if products is not None:
-                existing_products = set(
-                    instance.order_products.values_list("id", flat=True)
-                )
+                # Delete existing order products
+                instance.order_products.all().delete()
 
                 # Prefetch all products in one query to avoid N+1
                 product_ids = [product_data["product_id"] for product_data in products]
@@ -218,11 +217,6 @@ class OrderSerializer(serializers.ModelSerializer):
                     for product_data in products
                 ]
                 OrderProduct.objects.bulk_create(new_products)
-
-                # Remove products that are no longer in the new list
-                if existing_products:
-                    OrderProduct.objects.filter(id__in=existing_products).delete()
-
                 instance.save()
 
         return instance
