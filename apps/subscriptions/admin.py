@@ -17,7 +17,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
     )
     list_filter = ("current_sub_start", "current_sub_end", "is_active")
     ordering = ("current_sub_start",)
-    readonly_fields = ("current_sub_start", "current_sub_end", "is_active")
+    readonly_fields = ("current_sub_start", "current_sub_end")
 
     fieldsets = (
         (
