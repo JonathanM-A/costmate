@@ -311,9 +311,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "date",
             "delivery_date",
             "items",
+            "subtotal",
             "service_charge",
             "delivery_cost",
-            "subtotal",
             "discount",
             "tax",
             "total",
@@ -370,7 +370,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def get_subtotal(self, obj):
         profit_multiplier = Decimal(1) + (Decimal(obj.profit_margin) / Decimal(100))
-        self.subtotal = obj.total_cost * profit_multiplier
+        self.subtotal = obj.subtotal * profit_multiplier
         return str(Money(self.subtotal, self.currency))
 
     def get_service_charge(self, obj):
