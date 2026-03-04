@@ -45,7 +45,7 @@ class OrderAdmin(admin.ModelAdmin):
         (
             "Cost Breakdown",
             {
-                "fields": ("subtotal", "overhead", "packaging", "total_cost"),
+                "fields": ("subtotal", "overhead", "packaging", "delivery_cost","total_cost"),
             },
         ),
         (
