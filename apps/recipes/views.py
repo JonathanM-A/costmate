@@ -1,15 +1,16 @@
 from djmoney.money import Money
+from django.db import transaction
 from django.db.models import Count, Q, Sum, Prefetch
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from .models import RecipeInventory
+from rest_framework import mixins, status
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, GenericViewSet
+from .models import Recipe, RecipeInventory, RecipeStep
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from rest_framework import status
 from .serializers import (
     RecipeSerializer,
     RecipeDetailSerializer,
-    Recipe,
+    RecipeStepSerializer,
     RecipeCategorySerializer,
     RecipeCategory,
 )
@@ -196,3 +197,30 @@ class RecipeCategoryViewset(ModelViewSet):
             {"message": "Category deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
+class RecipeStepViewset(GenericViewSet, mixins.ListModelMixin):
+    permission_classes = [IsSubscriptionActive]
+    serializer_class = RecipeStepSerializer
+
+    def get_queryset(self): #type: ignore
+        return RecipeStep.objects.filter(
+            recipe_id=self.kwargs["recipe_pk"],
+            recipe__created_by=self.request.user,
+        )
+
+    def replace_steps(self, request, recipe_pk=None, **kwargs):
+        if not Recipe.objects.filter(pk=recipe_pk, created_by=request.user).exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RecipeStepSerializer(data=request.data, many=True)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            RecipeStep.objects.filter(recipe_id=recipe_pk).delete()
+            RecipeStep.objects.bulk_create([
+                RecipeStep(recipe_id=recipe_pk, **step)
+                for step in serializer.validated_data # type: ignore
+            ])
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

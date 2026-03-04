@@ -154,3 +154,20 @@ class RecipeInventory(models.Model):
 
     class Meta:
         verbose_name_plural = "Recipe Inventory"
+
+
+class RecipeStep(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True)
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name="steps"
+    )
+    step_number = models.PositiveIntegerField()
+    heading = models.CharField(max_length=200)
+    description = models.TextField()
+
+    class Meta:
+        ordering = ["step_number"]
+        unique_together = ["recipe", "step_number"]
+
+    def __str__(self):
+        return f"Step {self.step_number}: {self.heading}"

@@ -2,7 +2,7 @@ from decimal import Decimal
 from djmoney.money import Money
 from django.db.models import Q
 from rest_framework import serializers
-from .models import Recipe, RecipeInventory, RecipeCategory
+from .models import Recipe, RecipeInventory, RecipeCategory, RecipeStep
 from .services import RecipeService
 from ..inventory.serializers import InventoryItemSerializer, InventoryItem
 from ..users.utils import get_user_preferrence_from_cache
@@ -218,3 +218,10 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
                 amount = representation[field]
                 representation[field] = str(Money(amount, self.currency))
         return representation
+
+
+class RecipeStepSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecipeStep
+        fields = ["id", "step_number", "heading", "description"]
+        read_only_fields = ["id"]
