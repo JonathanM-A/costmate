@@ -162,7 +162,7 @@ class RecipeStep(models.Model):
         Recipe, on_delete=models.CASCADE, related_name="steps"
     )
     step_number = models.PositiveIntegerField()
-    heading = models.CharField(max_length=200)
+    heading = models.CharField(max_length=200, null=True, blank=True)
     description = models.TextField()
 
     class Meta:
